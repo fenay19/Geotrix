@@ -1,9 +1,11 @@
-from fastapi import Depends, HTTPException, status
 from typing import Generator
+from .database.db import SessionLocal
+
 
 def get_db() -> Generator:
+    """Yields a SQLAlchemy database session, ensuring it is closed after use."""
+    db = SessionLocal()
     try:
-        db = "Database Session Placeholder"
         yield db
     finally:
-        pass
+        db.close()

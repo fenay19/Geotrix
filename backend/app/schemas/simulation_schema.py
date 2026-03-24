@@ -1,12 +1,19 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
-class SimulationConfig(BaseModel):
-    name: str
-    scenario: str
-    duration_days: int
+class SimulationRunBase(BaseModel):
+    scenario_name: str
+    region: str
+    event_type: str
+    magnitude: str
+    results: dict
 
-class SimulationResult(BaseModel):
+class SimulationRunCreate(SimulationRunBase):
+    pass
+
+class SimulationRun(SimulationRunBase):
     id: int
-    config: SimulationConfig
-    outcome: str
+    created_at: str
+
+    class Config:
+        from_attributes = True

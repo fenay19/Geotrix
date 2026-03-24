@@ -1,26 +1,25 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..database.base import Base
 
-class Market(Base):
-    __tablename__ = "markets"
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
     id = Column(Integer, primary_key=True, index=True)
-    symbol = Column(String, unique=True, index=True)
-    price = Column(Float)
+    session_title = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    history = relationship("MarketHistory", back_populates="market")
-    signals = relationship("TradingSignal", back_populates="market")
+    messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
 
-class MarketHistory(Base):
-    __tablename__ = "market_history"
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
     id = Column(Integer, primary_key=True, index=True)
-    market_id = Column(Integer, ForeignKey("markets.id"), index=True)
-    price = Column(Float)
+    session_id = Column(Integer, ForeignKey("chat_sessions.id"), index=True)
+    role = Column(String) # Enum-like: 'user' or 'assistant'
+    content = Column(Text)
     timestamp = Column(DateTime, index=True, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    market = relationship("Market", back_populates="history")
+    session = relationship("ChatSession", back_populates="messages")
