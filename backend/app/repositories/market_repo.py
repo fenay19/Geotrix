@@ -5,7 +5,7 @@ from ..schemas.market_schema import MarketCreate, MarketHistoryCreate
 
 
 class MarketRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session):   
         self.db = db
 
     def get_all(self) -> List[Market]:
@@ -13,6 +13,22 @@ class MarketRepository:
 
     def get_by_id(self, market_id: int) -> Optional[Market]:
         return self.db.query(Market).filter(Market.id == market_id).first()
+
+    def get_global_assets(self, limit: int = 5) -> List[Market]:
+        return (
+            self.db.query(Market)
+            .filter(Market.is_global == True)
+            .limit(limit)
+            .all()
+        )
+
+    def get_local_assets(self, country_id: int, limit: int = 3) -> List[Market]:
+        return (
+            self.db.query(Market)
+            .filter(Market.country_id == country_id)
+            .limit(limit)
+            .all()
+        )
 
     def get_by_symbol(self, symbol: str) -> Optional[Market]:
         return self.db.query(Market).filter(Market.symbol == symbol).first()

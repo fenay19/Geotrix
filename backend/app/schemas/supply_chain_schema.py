@@ -10,16 +10,6 @@ class SupplyChainNodeBase(BaseModel):
 class SupplyChainNodeCreate(SupplyChainNodeBase):
     pass
 
-class SupplyChainNode(SupplyChainNodeBase):
-    id: int
-    outgoing_dependencies: List['SupplyChainDependency'] = []
-    incoming_dependencies: List['SupplyChainDependency'] = []
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
 class SupplyChainDependencyBase(BaseModel):
     source_node_id: int
     target_node_id: int
@@ -31,6 +21,16 @@ class SupplyChainDependencyCreate(SupplyChainDependencyBase):
 
 class SupplyChainDependency(SupplyChainDependencyBase):
     id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class SupplyChainNode(SupplyChainNodeBase):
+    id: int
+    outgoing_dependencies: List[SupplyChainDependency] = []
+    incoming_dependencies: List[SupplyChainDependency] = []
     created_at: datetime
     updated_at: datetime
 

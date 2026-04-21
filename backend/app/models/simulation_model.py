@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, JSON, DateTime
+from sqlalchemy import Column, Integer, String, JSON, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..database.base import Base
 
@@ -12,3 +13,6 @@ class SimulationRun(Base):
     results = Column(JSON) # JSON object containing predicted impacts on assets/sectors
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True, nullable=True)
+    
+    user = relationship("User", back_populates="simulation_runs")

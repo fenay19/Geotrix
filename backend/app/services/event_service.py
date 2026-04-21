@@ -17,6 +17,10 @@ class EventService:
         repo = EventRepository(db)
         return repo.get_by_country(country_id)
 
+    def get_top_risks_by_country(self, db: Session, country_id: int, limit: int = 5):
+        repo = EventRepository(db)
+        return repo.get_top_risks_by_country(country_id, limit)
+
     def get_events_by_type(self, db: Session, event_type: str):
         repo = EventRepository(db)
         return repo.get_by_type(event_type)

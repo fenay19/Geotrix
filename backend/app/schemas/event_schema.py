@@ -7,6 +7,7 @@ class EventBase(BaseModel):
     description: Optional[str] = None
     event_type: Optional[str] = None
     severity: Optional[int] = None
+    impact_label: Optional[str] = None
     source: Optional[str] = None
     timestamp: Optional[datetime] = None
     country_id: Optional[int] = None

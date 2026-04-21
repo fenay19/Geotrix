@@ -11,6 +11,7 @@ class Event(Base):
     description = Column(String)
     event_type = Column(String, index=True) # war, sanctions, policy, economic
     severity = Column(Integer, index=True) # scale 1-10
+    impact_label = Column(String, nullable=True) # CRITICAL, HIGH, ELEVATED
     source = Column(String)
     timestamp = Column(DateTime, index=True)
     country_id = Column(Integer, ForeignKey("country_risks.id"), nullable=True, index=True)

@@ -9,9 +9,13 @@ class ChatRepository:
         self.db = db
 
     # ── Session methods ──
-    def get_all_sessions(self, skip: int = 0, limit: int = 20) -> List[ChatSession]:
+    def get_all_sessions(self, user_id: Optional[int] = None, skip: int = 0, limit: int = 20) -> List[ChatSession]:
+        query = self.db.query(ChatSession)
+        if user_id:
+            query = query.filter(ChatSession.user_id == user_id)
+        
         return (
-            self.db.query(ChatSession)
+            query
             .order_by(ChatSession.updated_at.desc())
             .offset(skip)
             .limit(limit)

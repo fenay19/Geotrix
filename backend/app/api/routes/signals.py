@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from typing import List
 from ...schemas.signal_schema import Signal, SignalCreate
 from ...services.signal_service import signal_service
-from ...dependencies import get_db
+from ...dependencies import get_db, get_current_user
+from ...schemas.user_schema import User
 
 router = APIRouter()
 
@@ -36,4 +37,13 @@ def get_signal(signal_id: int, db: Session = Depends(get_db)):
     signal = signal_service.get_signal(db, signal_id)
     if not signal:
         raise HTTPException(status_code=404, detail="Signal not found")
+    return signal
+
+
+@router.post("/generate/{market_id}", response_model=Signal, status_code=201)
+def generate_signal(market_id: int, db: Session = Depends(get_db)):
+    """Auto-generates a trading signal using AI (OpenAI) with a rule-based fallback."""
+    signal = signal_service.auto_generate_signal(db, market_id)
+    if not signal:
+        raise HTTPException(status_code=404, detail="Market not found")
     return signal

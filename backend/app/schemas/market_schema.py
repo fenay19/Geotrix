@@ -5,6 +5,9 @@ from datetime import datetime
 class MarketBase(BaseModel):
     symbol: str
     price: float
+    category: str
+    is_global: bool = False
+    country_id: Optional[int] = None
 
 class MarketCreate(MarketBase):
     pass
@@ -12,18 +15,13 @@ class MarketCreate(MarketBase):
 class MarketUpdate(BaseModel):
     price: Optional[float] = None
 
-class Market(MarketBase):
-    id: int
-    history: List['MarketHistory'] = []
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
 class MarketHistoryBase(BaseModel):
     market_id: int
-    price: float
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: Optional[float] = None
     timestamp: datetime
 
 class MarketHistoryCreate(MarketHistoryBase):
@@ -32,6 +30,15 @@ class MarketHistoryCreate(MarketHistoryBase):
 class MarketHistory(MarketHistoryBase):
     id: int
     market_id: int
+
+    class Config:
+        from_attributes = True
+
+class Market(MarketBase):
+    id: int
+    history: List[MarketHistory] = []
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

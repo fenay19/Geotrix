@@ -16,8 +16,11 @@ class GTIScore(GTIScoreBase):
     class Config:
         from_attributes = True
 
+from typing import Optional
+
 class GTIHistoryBase(BaseModel):
     score: float
+    gti_id: Optional[int] = None
 
 class GTIHistoryCreate(GTIHistoryBase):
     timestamp: datetime

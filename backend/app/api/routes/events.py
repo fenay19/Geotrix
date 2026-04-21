@@ -35,6 +35,11 @@ def get_events_by_country(country_id: int, db: Session = Depends(get_db)):
     return event_service.get_events_by_country(db, country_id)
 
 
+@router.get("/top-risks/{country_id}", response_model=List[Event])
+def get_top_risks_by_country(country_id: int, limit: int = 5, db: Session = Depends(get_db)):
+    return event_service.get_top_risks_by_country(db, country_id, limit)
+
+
 @router.get("/{event_id}", response_model=Event)
 def read_event(event_id: int, db: Session = Depends(get_db)):
     event = event_service.get_event(db, event_id)

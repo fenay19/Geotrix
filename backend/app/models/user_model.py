@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..database.base import Base
 
@@ -10,3 +11,6 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    chat_sessions = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
+    simulation_runs = relationship("SimulationRun", back_populates="user", cascade="all, delete-orphan")

@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..database.base import Base
 
@@ -10,6 +11,7 @@ class GTIScore(Base):
     last_updated = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    history = relationship("GTIHistory", back_populates="gti_parent")
 
 class GTIHistory(Base):
     __tablename__ = "gti_history"
@@ -18,3 +20,5 @@ class GTIHistory(Base):
     timestamp = Column(DateTime, index=True, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    gti_id = Column(Integer, ForeignKey("gti_scores.id"), index=True)
+    gti_parent = relationship("GTIScore", back_populates="history")

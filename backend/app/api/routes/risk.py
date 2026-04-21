@@ -5,6 +5,7 @@ from ...schemas.country_risk_schema import CountryRisk, CountryRiskCreate
 from ...schemas.gti_schema import GTIScore, GTIScoreCreate, GTIHistory, GTIHistoryCreate
 from ...services.risk_service import risk_service
 from ...dependencies import get_db
+from ...pipelines.risk_pipeline import risk_pipeline
 
 router = APIRouter()
 
@@ -20,9 +21,13 @@ def get_high_risk_countries(min_score: float = 60.0, db: Session = Depends(get_d
     return risk_service.get_high_risk_countries(db, min_score)
 
 
-@router.get("/countries/{country_code}", response_model=CountryRisk)
-def get_country_risk(country_code: str, db: Session = Depends(get_db)):
-    risk = risk_service.get_country_risk(db, country_code)
+@router.get("/countries/{country_identifier}", response_model=CountryRisk)
+def get_country_risk(country_identifier: str, db: Session = Depends(get_db)):
+    # Support lookup by numeric ID or country code (e.g. "US", "IN")
+    if country_identifier.isdigit():
+        risk = risk_service.get_country_risk_by_id(db, int(country_identifier))
+    else:
+        risk = risk_service.get_country_risk(db, country_identifier)
     if not risk:
         raise HTTPException(status_code=404, detail="Country risk not found")
     return risk
@@ -55,3 +60,37 @@ def get_gti_history(limit: int = 30, db: Session = Depends(get_db)):
 @router.post("/gti/history", response_model=GTIHistory, status_code=201)
 def add_gti_history(history_in: GTIHistoryCreate, db: Session = Depends(get_db)):
     return risk_service.add_gti_history(db, history_in)
+
+
+@router.post("/gti/refresh")
+def refresh_gti(db: Session = Depends(get_db)):
+    """Triggers a full GTI recalculation from live event data."""
+    score = risk_service.refresh_gti(db)
+    return {"message": "GTI refreshed", "new_score": score}
+
+
+@router.get("/globe")
+def get_globe_data(db: Session = Depends(get_db)):
+    """Returns all country risk data formatted for the Earth Globe frontend."""
+    return risk_service.get_globe_data(db)
+
+
+@router.post("/countries/{country_code}/recalculate", response_model=CountryRisk)
+def recalculate_country_risk(country_code: str, db: Session = Depends(get_db)):
+    """Recalculates a single country's risk score based on its recent events."""
+    result = risk_service.recalculate_country_risk(db, country_code)
+    if not result:
+        raise HTTPException(status_code=404, detail="Country not found")
+    return result
+
+
+@router.post("/sync")
+def sync_global_risk(include_ai_summary: bool = True, db: Session = Depends(get_db)):
+    """
+    Triggers the full Risk Intelligence Pipeline:
+    - Recalculates risk scores for ALL countries based on recent events.
+    - Refreshes the Global Tension Index (GTI).
+    - Optionally generates an AI-written qualitative threat summary (requires OPENAI_API_KEY).
+    Run this AFTER /news/sync-events to factor in the latest geopolitical events.
+    """
+    return risk_pipeline.sync_global_risk(db, include_ai_summary=include_ai_summary)

@@ -28,6 +28,15 @@ class EventRepository:
             .all()
         )
 
+    def get_top_risks_by_country(self, country_id: int, limit: int = 5) -> List[Event]:
+        return (
+            self.db.query(Event)
+            .filter(Event.country_id == country_id)
+            .order_by(Event.severity.desc())
+            .limit(limit)
+            .all()
+        )
+
     def get_by_type(self, event_type: str) -> List[Event]:
         return (
             self.db.query(Event)

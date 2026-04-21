@@ -19,6 +19,7 @@ class ChatMessage(ChatMessageBase):
 
 class ChatSessionBase(BaseModel):
     session_title: str
+    user_id: Optional[int] = None
 
 class ChatSessionCreate(ChatSessionBase):
     pass

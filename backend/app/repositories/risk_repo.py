@@ -70,6 +70,12 @@ class GTIRepository:
             return new_gti
 
     def add_history(self, history_in: GTIHistoryCreate) -> GTIHistory:
+        # Check if gti_id is provided, if not, use the latest GTI as default
+        if not history_in.gti_id:
+            latest = self.get_latest()
+            if latest:
+                history_in.gti_id = latest.id
+                
         new_hist = GTIHistory(**history_in.model_dump())
         self.db.add(new_hist)
         self.db.commit()

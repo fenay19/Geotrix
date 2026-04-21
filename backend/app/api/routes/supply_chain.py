@@ -49,3 +49,15 @@ def get_dependents(node_id: int, db: Session = Depends(get_db)):
 @router.post("/dependencies", response_model=SupplyChainDependency, status_code=201)
 def create_dependency(dep_in: SupplyChainDependencyCreate, db: Session = Depends(get_db)):
     return supply_chain_service.create_dependency(db, dep_in)
+
+
+@router.get("/graph")
+def get_risk_graph(db: Session = Depends(get_db)):
+    """Returns the full supply chain as a nodes+edges graph for frontend visualization."""
+    return supply_chain_service.get_risk_graph(db)
+
+
+@router.get("/critical-nodes")
+def get_critical_nodes(min_dependents: int = 2, db: Session = Depends(get_db)):
+    """Returns nodes identified as chokepoints based on how many others depend on them."""
+    return supply_chain_service.get_critical_nodes(db, min_dependents)
