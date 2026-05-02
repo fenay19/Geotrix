@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from ...schemas.event_schema import Event, EventCreate
+from ...schemas.event_schema import Event, EventCreate, EventUpdate
 from ...services.event_service import event_service
 from ...dependencies import get_db
 
@@ -43,6 +43,14 @@ def get_top_risks_by_country(country_id: int, limit: int = 5, db: Session = Depe
 @router.get("/{event_id}", response_model=Event)
 def read_event(event_id: int, db: Session = Depends(get_db)):
     event = event_service.get_event(db, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return event
+
+
+@router.put("/{event_id}", response_model=Event)
+def update_event(event_id: int, event_in: EventUpdate, db: Session = Depends(get_db)):
+    event = event_service.update_event(db, event_id, event_in)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     return event

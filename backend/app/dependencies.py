@@ -38,3 +38,16 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return user
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Dependency that restricts an endpoint to superusers only.
+    Protects expensive sync endpoints (market, news, risk) from public abuse.
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required.",
+        )
+    return current_user

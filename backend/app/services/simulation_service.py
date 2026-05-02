@@ -1,14 +1,14 @@
-import requests
-import json
-from typing import Optional, List
+import logging
+from typing import Optional
 from sqlalchemy.orm import Session
 from ..repositories.simulation_repo import SimulationRepository
 from ..repositories.risk_repo import GTIRepository
 from ..repositories.event_repo import EventRepository
 from ..schemas.simulation_schema import SimulationRunCreate
+from ..ai.chatbot.chat_engine import get_chat_engine
 from ..config import settings
 
-OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+logger = logging.getLogger("geotrade.services.simulation")
 
 # Predefined impact templates for the rule-based fallback.
 # Maps (event_type, magnitude) → asset impact percentages.
@@ -123,26 +123,15 @@ Return ONLY this JSON structure (no markdown, no extra text):
 }}"""
 
         try:
-            resp = requests.post(
-                OPENAI_API_URL,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "gpt-4o-mini",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.3,
-                    "max_tokens": 800,
-                },
-                timeout=45,
+            engine = get_chat_engine(api_key)
+            result = engine.ask_json(
+                prompt,
+                temperature=0.3,
+                max_tokens=800,
             )
-            resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"]
-            content = content.strip().strip("```json").strip("```").strip()
-            return json.loads(content)
+            return result  # already parsed dict or None
         except Exception as e:
-            print(f"[WARN] AI simulation failed, using fallback: {e}")
+            logger.warning("AI simulation failed, using rule-based fallback: %s", e)
             return None
 
     def _rule_based_simulate(self, event_type: str, magnitude: str, region: str) -> dict:

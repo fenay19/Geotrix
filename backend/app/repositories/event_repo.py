@@ -60,6 +60,17 @@ class EventRepository:
         self.db.refresh(db_event)
         return db_event
 
+    def update(self, event_id: int, update_data: dict) -> Optional[Event]:
+        event = self.get_by_id(event_id)
+        if not event:
+            return None
+        for key, value in update_data.items():
+            if value is not None:
+                setattr(event, key, value)
+        self.db.commit()
+        self.db.refresh(event)
+        return event
+
     def delete(self, event_id: int) -> bool:
         event = self.get_by_id(event_id)
         if event:

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from .routes import events, market, risk, signals, simulation, supply_chain, chatbot, users, news, auth
+from .routes import events, market, risk, signals, simulation, supply_chain, chatbot, users, news, auth, forecast, ws
 
 api_router = APIRouter()
 
@@ -13,3 +13,5 @@ api_router.include_router(supply_chain.router, prefix="/supply-chain", tags=["Su
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 api_router.include_router(chatbot.router, prefix="/chat", tags=["Chat"])
 api_router.include_router(news.router, prefix="/news", tags=["News"])
+api_router.include_router(forecast.router, prefix="/forecast", tags=["Forecast"])
+api_router.include_router(ws.router, prefix="/ws", tags=["WebSockets"])

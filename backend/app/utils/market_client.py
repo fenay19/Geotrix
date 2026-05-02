@@ -1,6 +1,10 @@
+import logging
 import requests
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 from ..config import settings
+
+logger = logging.getLogger("geotrade.utils.market_client")
+
 
 class MarketDataClient:
     """
@@ -11,8 +15,7 @@ class MarketDataClient:
     def __init__(self):
         self.api_key = settings.FINNHUB_API_KEY
         if not self.api_key:
-            # Note: In a production app, we'd log a warning or raise an error
-            print("[WARNING] FINNHUB_API_KEY not found in settings.")
+            logger.warning("FINNHUB_API_KEY not found in settings — market data calls will fail.")
 
     def _get_params(self, additional_params: Dict[str, Any] = None) -> Dict[str, Any]:
         params = {"token": self.api_key}
@@ -31,7 +34,7 @@ class MarketDataClient:
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            print(f"[ERROR] Finnhub get_quote failed for {symbol}: {e}")
+            logger.error("Finnhub get_quote failed for %s: %s", symbol, e)
             return {}
 
     def get_candles(self, symbol: str, category: str, resolution: str, from_ts: int, to_ts: int) -> Dict[str, Any]:
@@ -61,14 +64,15 @@ class MarketDataClient:
             response = requests.get(url, params=params)
             response.raise_for_status()
             data = response.json()
-            
+
             if data.get("s") != "ok":
-                print(f"[DEBUG] Finnhub returned no_data or error for {symbol}: {data.get('s')}")
+                logger.debug("Finnhub returned no_data or error for %s: %s", symbol, data.get("s"))
                 return {}
-                
+
             return data
         except Exception as e:
-            print(f"[ERROR] Finnhub get_candles failed for {symbol}: {e}")
+            logger.error("Finnhub get_candles failed for %s: %s", symbol, e)
             return {}
+
 
 market_client = MarketDataClient()

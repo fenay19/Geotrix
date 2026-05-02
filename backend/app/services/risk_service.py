@@ -60,6 +60,7 @@ class RiskService:
         new_color = self._classify_color(new_score)
         country.risk_score = new_score
         country.color_code = new_color
+        country.last_updated = datetime.utcnow()   # fix: stamp the actual recalc time
         db.commit()
         db.refresh(country)
         return country

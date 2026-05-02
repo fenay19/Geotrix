@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from ...schemas.market_schema import Market, MarketCreate, MarketHistory, MarketHistoryCreate
 from ...services.market_service import market_service
-from ...dependencies import get_db
+from ...dependencies import get_db, require_admin
 from ...pipelines.market_pipeline import market_pipeline
 
 router = APIRouter()
@@ -43,7 +43,7 @@ def add_market_history(history_in: MarketHistoryCreate, db: Session = Depends(ge
 
 
 @router.post("/sync")
-def sync_market_data(history_days: int = 30, db: Session = Depends(get_db)):
+def sync_market_data(history_days: int = 30, db: Session = Depends(get_db), admin=Depends(require_admin)):
     """
     Triggers the Market Data Pipeline:
     - Fetches live price quotes from Finnhub for all registered markets.

@@ -4,8 +4,9 @@ from typing import List
 from ...schemas.country_risk_schema import CountryRisk, CountryRiskCreate
 from ...schemas.gti_schema import GTIScore, GTIScoreCreate, GTIHistory, GTIHistoryCreate
 from ...services.risk_service import risk_service
-from ...dependencies import get_db
+from ...dependencies import get_db, require_admin
 from ...pipelines.risk_pipeline import risk_pipeline
+from .ws import manager
 
 router = APIRouter()
 
@@ -63,9 +64,10 @@ def add_gti_history(history_in: GTIHistoryCreate, db: Session = Depends(get_db))
 
 
 @router.post("/gti/refresh")
-def refresh_gti(db: Session = Depends(get_db)):
+async def refresh_gti(db: Session = Depends(get_db)):
     """Triggers a full GTI recalculation from live event data."""
     score = risk_service.refresh_gti(db)
+    await manager.broadcast({"type": "gti_update", "score": score})
     return {"message": "GTI refreshed", "new_score": score}
 
 
@@ -85,12 +87,11 @@ def recalculate_country_risk(country_code: str, db: Session = Depends(get_db)):
 
 
 @router.post("/sync")
-def sync_global_risk(include_ai_summary: bool = True, db: Session = Depends(get_db)):
+async def sync_global_risk(include_ai_summary: bool = True, db: Session = Depends(get_db), admin=Depends(require_admin)):
     """
-    Triggers the full Risk Intelligence Pipeline:
-    - Recalculates risk scores for ALL countries based on recent events.
-    - Refreshes the Global Tension Index (GTI).
-    - Optionally generates an AI-written qualitative threat summary (requires OPENAI_API_KEY).
-    Run this AFTER /news/sync-events to factor in the latest geopolitical events.
+    Triggers the full Risk Intelligence Pipeline.
+    Broadcats a 'risk_update' event to the frontend on completion.
     """
-    return risk_pipeline.sync_global_risk(db, include_ai_summary=include_ai_summary)
+    result = risk_pipeline.sync_global_risk(db, include_ai_summary=include_ai_summary)
+    await manager.broadcast({"type": "risk_update", "summary": result.get("ai_summary")})
+    return result
