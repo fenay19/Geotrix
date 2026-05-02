@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..models.user_model import User
 from ..schemas.user_schema import UserCreate, UserUpdate
+from ..core.security import get_password_hash
 
 
 class UserRepository:
@@ -21,7 +22,8 @@ class UserRepository:
         db_user = User(
             email=user_in.email,
             hashed_password=hashed_password,
-            is_active=user_in.is_active
+            is_active=user_in.is_active,
+            is_superuser=user_in.is_superuser
         )
         self.db.add(db_user)
         self.db.commit()
@@ -31,10 +33,9 @@ class UserRepository:
     def update(self, db_obj: User, obj_in: UserUpdate) -> User:
         update_data = obj_in.model_dump(exclude_unset=True)
         
-        # If updating password, it should be hashed
+        # If updating password, hash it first (never store plain text)
         if "password" in update_data:
-            update_data["hashed_password"] = update_data["password"]
-            del update_data["password"]
+            update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
 
         for field in update_data:
             setattr(db_obj, field, update_data[field])

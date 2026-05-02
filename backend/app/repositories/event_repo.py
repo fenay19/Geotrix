@@ -60,6 +60,28 @@ class EventRepository:
         self.db.refresh(db_event)
         return db_event
 
+    def exists_by_title(self, title: str) -> bool:
+        """DB-level deduplication guard — checks if an event with this exact title
+        already exists. Used as a fallback when the FAISS vector store is cold
+        (e.g. after a restart before warm-up completes)."""
+        return (
+            self.db.query(Event.id)
+            .filter(Event.title == title)
+            .first()
+        ) is not None
+
+
+    def update(self, event_id: int, update_data: dict) -> Optional[Event]:
+        event = self.get_by_id(event_id)
+        if not event:
+            return None
+        for key, value in update_data.items():
+            if value is not None:
+                setattr(event, key, value)
+        self.db.commit()
+        self.db.refresh(event)
+        return event
+
     def delete(self, event_id: int) -> bool:
         event = self.get_by_id(event_id)
         if event:

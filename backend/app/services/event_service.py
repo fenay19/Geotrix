@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..repositories.event_repo import EventRepository
-from ..schemas.event_schema import EventCreate
+from ..schemas.event_schema import EventCreate, EventUpdate
 
 
 class EventService:
@@ -32,6 +32,10 @@ class EventService:
     def create_event(self, db: Session, event_in: EventCreate):
         repo = EventRepository(db)
         return repo.create(event_in)
+
+    def update_event(self, db: Session, event_id: int, event_in: EventUpdate):
+        repo = EventRepository(db)
+        return repo.update(event_id, event_in.model_dump(exclude_unset=True))
 
     def delete_event(self, db: Session, event_id: int):
         repo = EventRepository(db)

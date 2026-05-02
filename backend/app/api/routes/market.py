@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from ...schemas.market_schema import Market, MarketCreate, MarketHistory, MarketHistoryCreate
+from ...schemas.market_schema import Market, MarketCreate, MarketHistory, MarketHistoryCreate, MarketWithSignal
 from ...services.market_service import market_service
-from ...dependencies import get_db
+from ...dependencies import get_db, require_admin
 from ...pipelines.market_pipeline import market_pipeline
 
 router = APIRouter()
@@ -29,6 +29,36 @@ def create_market(market_in: MarketCreate, db: Session = Depends(get_db)):
     return market_service.create_market(db, market_in)
 
 
+@router.get("/all-with-signals", response_model=List[MarketWithSignal])
+def get_all_markets_with_signals(db: Session = Depends(get_db)):
+    """Returns all markets joined with their latest signal — single call for the Signals page list."""
+    from ...models.market_model import Market as MarketModel
+    from ...models.trading_signal_model import TradingSignal
+    from sqlalchemy import desc
+
+    markets = db.query(MarketModel).all()
+    results = []
+    for m in markets:
+        latest = (
+            db.query(TradingSignal)
+            .filter(TradingSignal.market_id == m.id)
+            .order_by(desc(TradingSignal.created_at))
+            .first()
+        )
+        results.append(MarketWithSignal(
+            id=m.id,
+            symbol=m.symbol,
+            name=m.name,
+            price=m.price,
+            asset_class=m.asset_class,
+            geo_sensitivity=m.geo_sensitivity,
+            latest_signal_type=latest.signal_type if latest else None,
+            latest_signal_confidence=latest.confidence if latest else None,
+            latest_signal_id=latest.id if latest else None,
+        ))
+    return results
+
+
 @router.get("/{symbol}", response_model=Market)
 def read_market(symbol: str, db: Session = Depends(get_db)):
     market = market_service.get_market(db, symbol)
@@ -43,7 +73,7 @@ def add_market_history(history_in: MarketHistoryCreate, db: Session = Depends(ge
 
 
 @router.post("/sync")
-def sync_market_data(history_days: int = 30, db: Session = Depends(get_db)):
+def sync_market_data(history_days: int = 30, db: Session = Depends(get_db), admin=Depends(require_admin)):
     """
     Triggers the Market Data Pipeline:
     - Fetches live price quotes from Finnhub for all registered markets.
@@ -51,3 +81,12 @@ def sync_market_data(history_days: int = 30, db: Session = Depends(get_db)):
     Returns a summary of prices updated and candles inserted.
     """
     return market_pipeline.sync_all_markets(db, history_days=history_days)
+
+
+@router.get("/by-class/{asset_class}", response_model=List[Market])
+def get_markets_by_class(asset_class: str, db: Session = Depends(get_db)):
+    """Filter markets by asset class (Stocks, ETFs, Forex, Crypto, Commodities, Bonds, Indices)."""
+    from ...models.market_model import Market as MarketModel
+    return db.query(MarketModel).filter(
+        MarketModel.asset_class.ilike(asset_class)
+    ).all()

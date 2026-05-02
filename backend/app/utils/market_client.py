@@ -1,74 +1,91 @@
-import requests
-from typing import Dict, Any, List, Optional
-from ..config import settings
+import logging
+from typing import Dict, Any
+import yfinance as yf
+from datetime import datetime
+
+logger = logging.getLogger("geotrade.utils.market_client")
+
 
 class MarketDataClient:
     """
-    Client for interacting with the Finnhub API to fetch real-time and historical market data.
+    Client for interacting with Yahoo Finance (yfinance) to fetch real-time
+    and historical market data. 100% free, requiring no API keys.
     """
-    BASE_URL = "https://finnhub.io/api/v1"
 
-    def __init__(self):
-        self.api_key = settings.FINNHUB_API_KEY
-        if not self.api_key:
-            # Note: In a production app, we'd log a warning or raise an error
-            print("[WARNING] FINNHUB_API_KEY not found in settings.")
-
-    def _get_params(self, additional_params: Dict[str, Any] = None) -> Dict[str, Any]:
-        params = {"token": self.api_key}
-        if additional_params:
-            params.update(additional_params)
-        return params
+    TICKER_MAP = {
+        "GOLD":      "GC=F",
+        "OIL_BRENT": "BZ=F",
+        "SP500":     "^GSPC",
+        "XAUUSD":    "GC=F",
+        "BTCUSD":    "BTC-USD",
+        "WTI":       "CL=F",
+        "HSI":       "^HSI",
+        "LMT":       "LMT",
+        "INDA":      "INDA",
+    }
 
     def get_quote(self, symbol: str) -> Dict[str, Any]:
         """
-        Fetches the latest quote for a given symbol.
+        Fetches the latest quote for a given symbol using Yahoo Finance.
         Returns a dictionary with: c (current), h (high), l (low), o (open), pc (prev close), t (timestamp)
         """
-        url = f"{self.BASE_URL}/quote"
+        yf_ticker = self.TICKER_MAP.get(symbol, symbol)
         try:
-            response = requests.get(url, params=self._get_params({"symbol": symbol}))
-            response.raise_for_status()
-            return response.json()
+            ticker = yf.Ticker(yf_ticker)
+            # Fetch last 5 days of history to get current and previous close
+            df = ticker.history(period="5d", interval="1d")
+            if not df.empty:
+                df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
+                
+                last_row = df.iloc[-1]
+                prev_close = float(df["close"].iloc[-2]) if len(df) >= 2 else float(last_row["close"])
+                
+                return {
+                    "c": float(last_row["close"]),
+                    "h": float(last_row["high"]),
+                    "l": float(last_row["low"]),
+                    "o": float(last_row["open"]),
+                    "pc": prev_close,
+                    "t": int(df.index[-1].timestamp()),
+                }
+            else:
+                logger.warning("yfinance returned empty quote history for %s", yf_ticker)
         except Exception as e:
-            print(f"[ERROR] Finnhub get_quote failed for {symbol}: {e}")
-            return {}
+            logger.error("yfinance get_quote failed for %s (mapped: %s): %s", symbol, yf_ticker, e)
+            
+        return {}
 
     def get_candles(self, symbol: str, category: str, resolution: str, from_ts: int, to_ts: int) -> Dict[str, Any]:
         """
-        Fetches historical candles for a given symbol.
-        Automatically routes to /stock/candle, /crypto/candle, or /forex/candle based on category.
+        Fetches historical candles for a given symbol using Yahoo Finance.
         """
-        # Map category to the specific Finnhub endpoint
-        category_lower = category.lower()
-        if "crypto" in category_lower:
-            endpoint = "/crypto/candle"
-        elif "forex" in category_lower or "currency" in category_lower:
-            endpoint = "/forex/candle"
-        else:
-            # Default to stock/index/commodity endpoint
-            endpoint = "/stock/candle"
-
-        url = f"{self.BASE_URL}{endpoint}"
-        params = self._get_params({
-            "symbol": symbol,
-            "resolution": resolution,
-            "from": from_ts,
-            "to": to_ts
-        })
-
+        yf_ticker = self.TICKER_MAP.get(symbol, symbol)
         try:
-            response = requests.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
+            start_date = datetime.fromtimestamp(from_ts).strftime("%Y-%m-%d")
+            end_date = datetime.fromtimestamp(to_ts).strftime("%Y-%m-%d")
             
-            if data.get("s") != "ok":
-                print(f"[DEBUG] Finnhub returned no_data or error for {symbol}: {data.get('s')}")
-                return {}
+            logger.info("yfinance fetching history for %s (mapped: %s) from %s to %s", symbol, yf_ticker, start_date, end_date)
+            df = yf.download(yf_ticker, start=start_date, end=end_date, interval="1d", progress=False)
+            
+            if not df.empty:
+                df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
+                timestamps = [int(t.timestamp()) for t in df.index]
                 
-            return data
-        except Exception as e:
-            print(f"[ERROR] Finnhub get_candles failed for {symbol}: {e}")
-            return {}
+                return {
+                    "s": "ok",
+                    "o": [float(x) for x in df["open"]],
+                    "h": [float(x) for x in df["high"]],
+                    "l": [float(x) for x in df["low"]],
+                    "c": [float(x) for x in df["close"]],
+                    "v": [float(x) for x in df["volume"]],
+                    "t": timestamps
+                }
+            else:
+                logger.warning("yfinance returned empty dataframe for %s", yf_ticker)
+        except Exception as yfe:
+            logger.error("yfinance get_candles failed for %s (mapped: %s): %s", symbol, yf_ticker, yfe)
+
+        return {}
+
 
 market_client = MarketDataClient()

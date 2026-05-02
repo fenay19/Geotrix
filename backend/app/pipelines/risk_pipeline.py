@@ -1,11 +1,24 @@
-import json
-import requests
+"""
+RiskPipeline: recalculates country risk scores and the Global Tension Index (GTI).
+
+Refactored vs. original:
+  - Uses ChatEngine instead of raw requests.post
+  - Uses THREAT_SUMMARY_PROMPT from prompt_templates
+  - Uses logger instead of print() statements
+  - HIGH_RISK_THRESHOLD from constants (was hardcoded 65)
+"""
+
+import logging
 from sqlalchemy.orm import Session
+
 from ..services.risk_service import risk_service
 from ..services.gti_service import gti_service
 from ..config import settings
+from ..ai.chatbot.chat_engine import get_chat_engine
+from ..ai.chatbot.prompt_templates import THREAT_SUMMARY_PROMPT
+from ..core.constants import HIGH_RISK_THRESHOLD
 
-OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+logger = logging.getLogger("geotrade.pipelines.risk")
 
 
 class RiskPipeline:
@@ -13,8 +26,7 @@ class RiskPipeline:
     Orchestration pipeline that recalculates geopolitical risk scores for
     all countries and refreshes the Global Tension Index (GTI).
 
-    This pipeline should run AFTER the NewsPipeline so it can factor in
-    the latest AI-evaluated events that were just inserted into the database.
+    Run AFTER NewsPipeline so it can factor in the latest evaluated events.
     """
 
     def sync_global_risk(self, db: Session, include_ai_summary: bool = True) -> dict:
@@ -26,14 +38,6 @@ class RiskPipeline:
             2. Recalculate each country's risk score from its recent Events.
             3. Recalculate (and persist) the global GTI score.
             4. Optionally generate an AI threat-level summary paragraph.
-
-        Args:
-            db:                 SQLAlchemy session.
-            include_ai_summary: If True and OPENAI_API_KEY is set, generate
-                                a qualitative global threat summary.
-
-        Returns:
-            Summary dict with updated country count, new GTI, and summary text.
         """
         countries = risk_service.get_all_country_risks(db)
 
@@ -55,22 +59,25 @@ class RiskPipeline:
                 updated_country = risk_service.recalculate_country_risk(db, country.country_code)
                 if updated_country:
                     updated += 1
-                    if updated_country.risk_score >= 65:
+                    if updated_country.risk_score >= HIGH_RISK_THRESHOLD:
                         high_risk_countries.append({
-                            "code": updated_country.country_code,
-                            "name": updated_country.country_name,
+                            "code":  updated_country.country_code,
+                            "name":  updated_country.country_name,
                             "score": updated_country.risk_score,
                             "color": updated_country.color_code,
                         })
-            except Exception as e:
-                print(f"[WARN] Failed to recalculate risk for {country.country_code}: {e}")
+            except Exception as exc:
+                logger.warning("Failed to recalculate risk for %s: %s", country.country_code, exc)
+
+        logger.info("Risk recalculated for %d countries (%d high-risk).", updated, len(high_risk_countries))
 
         # ── 2. Recalculate & persist the global GTI ─────────────────────────
+        new_gti = None
         try:
             new_gti = gti_service.calculate_current_gti(db)
-        except Exception as e:
-            print(f"[ERROR] GTI recalculation failed: {e}")
-            new_gti = None
+            logger.info("New GTI score: %.1f", new_gti or 0)
+        except Exception as exc:
+            logger.error("GTI recalculation failed: %s", exc)
 
         # ── 3. Optional AI threat-level summary ─────────────────────────────
         ai_summary = None
@@ -86,45 +93,27 @@ class RiskPipeline:
             "ai_summary": ai_summary,
         }
 
-    def _generate_threat_summary(self, gti: float, high_risk_countries: list) -> str:
+    def _generate_threat_summary(self, gti: float, high_risk_countries: list) -> str | None:
         """
-        Asks OpenAI to produce a 2-3 sentence qualitative summary of the
-        current global threat landscape, given the top high-risk countries
-        and the current GTI score.
+        Uses ChatEngine to produce a 2-3 sentence qualitative summary of the
+        current global threat landscape for the /risk/sync response.
         """
         country_list = ", ".join(
             f"{c['name']} ({c['code']}, score: {c['score']})"
             for c in sorted(high_risk_countries, key=lambda x: x["score"], reverse=True)[:5]
         )
 
-        prompt = f"""You are a senior geopolitical risk analyst for a financial intelligence platform.
+        prompt = THREAT_SUMMARY_PROMPT.format(
+            gti=round(gti or 0, 1),
+            country_list=country_list,
+        )
 
-Current Global Tension Index (GTI): {gti}/100
-Highest risk countries right now: {country_list}
-
-Write a precise, professional 2-3 sentence summary of the current global threat landscape for traders and investors.
-Do NOT use bullet points. Do NOT use markdown. Write in plain text only."""
-
-        try:
-            resp = requests.post(
-                OPENAI_API_URL,
-                headers={
-                    "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "gpt-4o-mini",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.4,
-                    "max_tokens": 200,
-                },
-                timeout=20,
-            )
-            resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"].strip()
-        except Exception as e:
-            print(f"[WARN] AI threat summary failed: {e}")
-            return None
+        engine = get_chat_engine(settings.OPENAI_API_KEY)
+        result = engine.ask(prompt, temperature=0.4, max_tokens=200)
+        if result:
+            return result.strip()
+        logger.warning("AI threat summary returned None — using fallback.")
+        return f"Global tension is currently at {gti or 0:.1f}/100 with elevated risk in {country_list}."
 
 
 risk_pipeline = RiskPipeline()

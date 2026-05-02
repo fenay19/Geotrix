@@ -1,9 +1,14 @@
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+import logging
 import time
 from ..utils.market_client import market_client
 from ..repositories.market_repo import MarketRepository
 from ..schemas.market_schema import MarketHistoryCreate
+from ..models.market_model import MarketHistory
+
+logger = logging.getLogger("geotrade.services.market_data")
+
 
 class MarketDataService:
     """
@@ -17,7 +22,7 @@ class MarketDataService:
         repo = MarketRepository(db)
         market = repo.get_by_symbol(symbol)
         if not market:
-            print(f"[DEBUG] Market not found for symbol: {symbol}")
+            logger.debug("Market not found for symbol: %s", symbol)
             return False
 
         quote = market_client.get_quote(symbol)
@@ -30,6 +35,7 @@ class MarketDataService:
     def sync_historical_candles(self, db: Session, symbol: str, days: int = 30) -> int:
         """
         Fetches historical OHLC data and populates the MarketHistory table.
+        Skips rows that already exist for the same (market_id, timestamp) to prevent duplicates.
         """
         repo = MarketRepository(db)
         market = repo.get_by_symbol(symbol)
@@ -52,9 +58,20 @@ class MarketDataService:
         if not data or "c" not in data:
             return 0
 
-        # Parse Finnhub response (lists of values)
+        # Build a set of existing timestamps for this market to skip duplicates
+        existing_ts = {
+            row.timestamp
+            for row in db.query(MarketHistory.timestamp)
+            .filter(MarketHistory.market_id == market.id)
+            .all()
+        }
+
         count = 0
         for i in range(len(data["c"])):
+            candle_dt = datetime.fromtimestamp(data["t"][i])
+            if candle_dt in existing_ts:
+                continue   # skip duplicate
+
             history_in = MarketHistoryCreate(
                 market_id=market.id,
                 open=data["o"][i],
@@ -62,11 +79,13 @@ class MarketDataService:
                 low=data["l"][i],
                 close=data["c"][i],
                 volume=data["v"][i] if "v" in data else 0,
-                timestamp=datetime.fromtimestamp(data["t"][i])
+                timestamp=candle_dt,
             )
             repo.add_history(history_in)
             count += 1
 
+        logger.debug("Inserted %d new candles for %s (skipped duplicates).", count, symbol)
         return count
+
 
 market_data_service = MarketDataService()

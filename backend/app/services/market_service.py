@@ -24,6 +24,14 @@ class MarketService:
         repo = MarketRepository(db)
         return repo.get_history(market_id, limit)
 
+    def get_market_history(self, db: Session, symbol: str, limit: int = 50):
+        """Convenience method: resolves symbol → market, then fetches history."""
+        repo = MarketRepository(db)
+        market = repo.get_by_symbol(symbol)
+        if not market:
+            return []
+        return repo.get_history(market.id, limit)
+
     def get_global_assets(self, db: Session, limit: int = 5):
         repo = MarketRepository(db)
         return repo.get_global_assets(limit)

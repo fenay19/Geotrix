@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 from ..models.event_model import Event
 from ..models.country_risk_model import CountryRisk
@@ -33,15 +33,17 @@ class RiskService:
 
     def recalculate_country_risk(self, db: Session, country_code: str) -> CountryRisk:
         """
-        Dynamically recalculates a country's risk score based on its recent events.
-        Weights by severity and recency, then classifies a color.
+        Dynamically recalculates a country's risk score based on its recent events
+        using an exponential decay recency factor and threat sentiment weights.
         """
+        import math
         repo = CountryRiskRepository(db)
         country = repo.get_by_code(country_code)
         if not country:
             return None
 
-        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        now = datetime.now(timezone.utc)
+        seven_days_ago = now - timedelta(days=7)
         events = (
             db.query(Event)
             .filter(Event.country_id == country.id)
@@ -50,16 +52,52 @@ class RiskService:
         )
 
         if not events:
-            # No recent events — risk stays static or falls to 30 (low baseline)
-            new_score = max(25.0, country.risk_score - 5.0)
+            # Gradually decay the score if no recent events exist
+            new_score = max(25.0, round(country.risk_score * 0.90, 1))
         else:
-            # Average severity * 10 to normalize to 0-100 scale
-            total = sum((e.severity or 5) for e in events)
-            new_score = min(100.0, round((total / len(events)) * 10, 1))
+            sentiment_map = {
+                "war": 95.0,
+                "conflict": 85.0,
+                "sanctions": 75.0,
+                "unrest": 65.0,
+                "policy": 50.0,
+                "economic": 40.0,
+            }
+            decay_lambda = 0.15
+            
+            total_score = 0.0
+            total_weight = 0.0
+            
+            for event in events:
+                # E = Event Severity (0 to 100)
+                E = (event.severity or 5) * 10.0
+                # S = Threat Sentiment
+                S = sentiment_map.get((event.event_type or "").lower(), 50.0)
+                
+                # R = Recency Score (0 to 100)
+                event_ts = event.timestamp
+                if event_ts.tzinfo is None:
+                    event_ts = event_ts.replace(tzinfo=timezone.utc)
+                age_seconds = (now - event_ts).total_seconds()
+                t = max(0.0, age_seconds / 86400.0)
+                recency_weight = math.exp(-decay_lambda * t)
+                R = recency_weight * 100.0
+                
+                # Combined country-level event score
+                event_score = (0.50 * E) + (0.30 * S) + (0.20 * R)
+                
+                total_score += event_score * recency_weight
+                total_weight += recency_weight
+                
+            if total_weight > 0:
+                new_score = min(100.0, max(0.0, round(total_score / total_weight, 1)))
+            else:
+                new_score = 25.0
 
         new_color = self._classify_color(new_score)
         country.risk_score = new_score
         country.color_code = new_color
+        country.last_updated = now
         db.commit()
         db.refresh(country)
         return country

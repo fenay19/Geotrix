@@ -1,111 +1,580 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-void: var(--bg-void);
+  --color-bg-panel: var(--bg-panel);
+  --color-bg-card: var(--bg-card);
+  --color-bg-surface: var(--bg-surface);
+
+  --color-amber: var(--amber);
+  --color-amber-dim: var(--amber-dim);
+  --color-buy: var(--buy);
+  --color-sell: var(--sell);
+  --color-hold: var(--hold);
+  --color-violet: var(--violet);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-ghost: var(--text-ghost);
+
+  --color-border-primary: var(--border);
+  --color-border-active: var(--border-active);
+  --color-border-subtle: var(--border-subtle);
+
+  --color-risk-low: var(--risk-low);
+  --color-risk-medium: var(--risk-medium);
+  --color-risk-high: var(--risk-high);
+  --color-risk-critical: var(--risk-critical);
+
+  --color-accent-primary: var(--amber);
+  --color-accent-secondary: var(--buy);
+}
+
+/* ============================================================
+   GeoTrade AI — War Room Design System
+   Theme: Warm Obsidian + Amber/Gold Intelligence Terminal
+   NOT a cold blue fintech dashboard — this is command center
+   ============================================================ */
+
+
+
+/* ── CSS Custom Properties ─────────────────────────────────────────────────── */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* Background Scale — warm obsidian, not cold navy */
+  --bg-void: #080604;
+  --bg-primary: #0c0a08;
+  --bg-secondary: #110e0b;
+  --bg-panel: rgba(14, 11, 8, 0.92);
+  --bg-card: rgba(20, 16, 11, 0.85);
+  --bg-surface: #181310;
+  --bg-hover: rgba(245, 158, 11, 0.06);
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* Amber/Gold — primary brand accent */
+  --amber: #f59e0b;
+  --amber-dim: #b45309;
+  --amber-glow: rgba(245, 158, 11, 0.15);
+  --amber-border: rgba(245, 158, 11, 0.25);
+  --amber-bright: #fbbf24;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Signal Colors */
+  --buy: #10b981;
+  /* Emerald */
+  --buy-dim: rgba(16, 185, 129, 0.12);
+  --buy-border: rgba(16, 185, 129, 0.30);
+  --sell: #f43f5e;
+  /* Rose */
+  --sell-dim: rgba(244, 63, 94, 0.12);
+  --sell-border: rgba(244, 63, 94, 0.30);
+  --hold: #f59e0b;
+  /* Amber */
+  --hold-dim: rgba(245, 158, 11, 0.12);
+  --hold-border: rgba(245, 158, 11, 0.30);
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  /* AI / Intelligence accent */
+  --violet: #8b5cf6;
+  --violet-dim: rgba(139, 92, 246, 0.15);
+  --violet-border: rgba(139, 92, 246, 0.30);
+
+  /* Text */
+  --text-primary: #f0ebe4;
+  --text-secondary: #c4b89a;
+  --text-muted: #7a6e60;
+  --text-ghost: #3d362c;
+
+  /* Borders */
+  --border: rgba(245, 158, 11, 0.10);
+  --border-active: rgba(245, 158, 11, 0.35);
+  --border-subtle: rgba(240, 235, 228, 0.06);
+
+  /* Risk colors */
+  --risk-low: #10b981;
+  --risk-medium: #f59e0b;
+  --risk-high: #f97316;
+  --risk-critical: #f43f5e;
+
+  /* Accent (legacy compat) */
+  --accent-primary: var(--amber);
+  --accent-secondary: var(--buy);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+/* ── Reset & Base ──────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
-  margin: 0;
+  background-color: var(--bg-void);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scanline texture overlay — subtle CRT feel */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.03) 2px,
+      rgba(0, 0, 0, 0.03) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Typography ────────────────────────────────────────────────────────────── */
+.font-display {
+  font-family: 'Syne', sans-serif;
+}
+
+.font-mono {
+  font-family: 'Space Mono', monospace;
+}
+
+.font-sans {
+  font-family: 'Inter', sans-serif;
 }
 
 h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
+/* ── Panel / Card Components ───────────────────────────────────────────────── */
+
+/* Glass panel — backdrop blur with amber border */
+.glass-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
-code,
-.counter {
-  font-family: var(--mono);
+/* War room card — sharp corners with diagonal clip */
+.war-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  position: relative;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+.war-card::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  bottom: -1px;
+  left: -1px;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  background: linear-gradient(135deg, var(--amber-border) 0%, transparent 50%);
+  z-index: -1;
+}
+
+/* Section label — amber monospace uppercase */
+.section-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--amber-dim);
+}
+
+/* ── Signal Badges ─────────────────────────────────────────────────────────── */
+.badge-buy {
   display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: var(--buy-dim);
+  color: var(--buy);
+  border: 1px solid var(--buy-border);
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+.badge-sell {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: var(--sell-dim);
+  color: var(--sell);
+  border: 1px solid var(--sell-border);
+}
+
+.badge-hold {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: var(--hold-dim);
+  color: var(--hold);
+  border: 1px solid var(--hold-border);
+}
+
+/* ── Strength Bar ──────────────────────────────────────────────────────────── */
+.strength-bar {
+  height: 4px;
+  border-radius: 1px;
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+
+.strength-bar-fill-buy {
+  height: 100%;
+  background: linear-gradient(90deg, var(--buy-dim), var(--buy));
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.strength-bar-fill-sell {
+  height: 100%;
+  background: linear-gradient(90deg, var(--sell-dim), var(--sell));
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.strength-bar-fill-amber {
+  height: 100%;
+  background: linear-gradient(90deg, var(--amber-glow), var(--amber));
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Amber Glow Text ───────────────────────────────────────────────────────── */
+.text-amber {
+  color: var(--amber);
+}
+
+.text-amber-dim {
+  color: var(--amber-dim);
+}
+
+.text-buy {
+  color: var(--buy);
+}
+
+.text-sell {
+  color: var(--sell);
+}
+
+.text-hold {
+  color: var(--hold);
+}
+
+.text-violet {
+  color: var(--violet);
+}
+
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.btn-amber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--amber-glow);
+  border: 1px solid var(--amber-border);
+  color: var(--amber);
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+
+.btn-amber:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: var(--amber);
+  box-shadow: 0 0 12px var(--amber-glow);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-ghost:hover {
+  border-color: var(--border-active);
+  color: var(--text-secondary);
+}
+
+/* ── Inputs ────────────────────────────────────────────────────────────────── */
+.war-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-void);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.war-input:focus {
+  border-color: var(--amber-border);
+  box-shadow: 0 0 0 1px var(--amber-glow) inset;
+}
+
+.war-input::placeholder {
+  color: var(--text-ghost);
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-void);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--amber-dim);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--amber);
+}
+
+/* ── Amber glow pulse animation ────────────────────────────────────────────── */
+@keyframes amber-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 4px var(--amber-glow);
+  }
+
+  50% {
+    box-shadow: 0 0 12px var(--amber-glow), 0 0 24px rgba(245, 158, 11, 0.08);
+  }
+}
+
+@keyframes data-tick {
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes scanline-move {
+  0% {
+    transform: translateY(0);
+  }
+
+  100% {
+    transform: translateY(4px);
+  }
+}
+
+.amber-pulse {
+  animation: amber-pulse 2s ease-in-out infinite;
+}
+
+.data-tick {
+  animation: data-tick 1s steps(1) infinite;
+}
+
+/* ── Skeleton loading ─────────────────────────────────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg,
+      var(--bg-surface) 25%,
+      rgba(245, 158, 11, 0.06) 50%,
+      var(--bg-surface) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite linear;
+  border-radius: 1px;
+}
+
+/* ── Clip-path reveal (Framer Motion supplement) ───────────────────────────── */
+.clip-reveal-left {
+  clip-path: inset(0 0 0 0);
+}
+
+/* ── Risk colors (legacy compat) ───────────────────────────────────────────── */
+.text-risk-low {
+  color: var(--risk-low);
+}
+
+.text-risk-medium {
+  color: var(--risk-medium);
+}
+
+.text-risk-high {
+  color: var(--risk-high);
+}
+
+.text-risk-critical {
+  color: var(--risk-critical);
+}
+
+.bg-risk-low {
+  background-color: var(--risk-low);
+}
+
+.bg-risk-critical {
+  background-color: var(--risk-critical);
+}
+
+/* ── Legacy variable compat (for existing components) ─────────────────────── */
+.bg-bg-primary {
+  background-color: var(--bg-primary);
+}
+
+.bg-bg-secondary {
+  background-color: var(--bg-secondary);
+}
+
+.bg-surface {
+  background-color: var(--bg-surface);
+}
+
+.border-border-primary {
+  border-color: var(--border);
+}
+
+.text-text-primary {
+  color: var(--text-primary);
+}
+
+.text-text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-text-muted {
+  color: var(--text-muted);
+}
+
+.text-accent-primary {
+  color: var(--amber);
+}
+
+.text-accent-secondary {
+  color: var(--buy);
+}
+
+/* ── Table styles ──────────────────────────────────────────────────────────── */
+.sios-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sios-table th {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.sios-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.sios-table tr:hover td {
+  background: var(--bg-hover);
+}
+
+/* ── Utility ───────────────────────────────────────────────────────────────── */
+.select-none {
+  user-select: none;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

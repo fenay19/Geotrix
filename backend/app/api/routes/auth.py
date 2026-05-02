@@ -1,5 +1,5 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from ...core.security import create_access_token
@@ -31,11 +31,14 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login_for_access_token(
-    db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
+    response: Response,
+    db: Session = Depends(get_db),
+    form_data: OAuth2PasswordRequestForm = Depends()
 ):
     """
     Login with email and password.
-    - Returns a Bearer JWT access token on success.
+    - Sets a secure HttpOnly JWT access token cookie.
+    - Returns a bearer fallback token in the JSON body.
     - Raises 401 for invalid credentials.
     """
     user = user_service.authenticate(db, email=form_data.username, password=form_data.password)
@@ -49,13 +52,39 @@ def login_for_access_token(
     access_token = create_access_token(
         subject=user.id, expires_delta=access_token_expires
     )
+    
+    # Set secure HttpOnly cookie
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        secure=not settings.DEBUG,  # True in prod, False in local dev (HTTP)
+        samesite="lax",
+    )
+    
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/logout")
+def logout(response: Response):
+    """
+    Clears the HttpOnly access token cookie.
+    """
+    response.delete_cookie(
+        key="access_token",
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="lax",
+    )
+    return {"status": "success", "message": "Successfully logged out"}
 
 
 @router.get("/me", response_model=User)
 def read_users_me(current_user: User = Depends(get_current_user)):
     """
     Returns the currently authenticated user's profile details.
-    Requires a valid Bearer token in the Authorization header.
+    Requires a valid access token cookie or Bearer token in the Authorization header.
     """
     return current_user

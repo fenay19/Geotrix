@@ -14,7 +14,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 
 from app.database.db import SessionLocal, engine
@@ -60,17 +60,17 @@ def seed():
         # 2. EVENTS
         # ──────────────────────────────────────────────
         events_data = [
-            {"title": "Taiwan Strait Military Drills", "description": "China conducts large-scale military exercises near Taiwan", "event_type": "war", "severity": 9, "impact_label": "CRITICAL", "source": "Reuters", "country_code": "TW"},
-            {"title": "Russia-Ukraine Escalation", "description": "Renewed offensive in eastern Ukraine with heavy shelling", "event_type": "war", "severity": 10, "impact_label": "CRITICAL", "source": "BBC", "country_code": "UA"},
-            {"title": "US Federal Reserve Rate Decision", "description": "Fed signals potential rate hike in upcoming meeting", "event_type": "economic", "severity": 7, "impact_label": "HIGH", "source": "Bloomberg", "country_code": "US"},
-            {"title": "OPEC+ Production Cut", "description": "Saudi Arabia leads surprise oil production cut", "event_type": "economic", "severity": 8, "impact_label": "HIGH", "source": "CNBC", "country_code": "SA"},
-            {"title": "Iran Nuclear Talks Collapse", "description": "Diplomatic negotiations break down, sanctions expected", "event_type": "sanctions", "severity": 8, "impact_label": "ELEVATED", "source": "Al Jazeera", "country_code": "IR"},
-            {"title": "China Rare Earth Export Restrictions", "description": "Beijing imposes new limits on critical mineral exports", "event_type": "sanctions", "severity": 7, "impact_label": "HIGH", "source": "Financial Times", "country_code": "CN"},
-            {"title": "Israel-Hamas Conflict Intensifies", "description": "Major military operation launched in Gaza Strip", "event_type": "war", "severity": 9, "impact_label": "CRITICAL", "source": "CNN", "country_code": "IL"},
-            {"title": "US-China Tech Sanctions", "description": "US imposes new semiconductor export controls on China", "event_type": "sanctions", "severity": 8, "impact_label": "HIGH", "source": "WSJ", "country_code": "US"},
+            {"title": "Taiwan Strait Military Drills", "description": "China conducts large-scale military exercises near Taiwan", "event_type": "war", "severity": 9, "impact_label": "CRITICAL", "source": "Reuters", "country_code": "TW", "casualties": 0, "economic_damage": 50.0, "infrastructure_destruction": "Minimal", "displaced_population": 0, "impact_factor": 1.0, "escalation_potential": 8},
+            {"title": "Russia-Ukraine Escalation", "description": "Renewed offensive in eastern Ukraine with heavy shelling", "event_type": "war", "severity": 10, "impact_label": "CRITICAL", "source": "BBC", "country_code": "UA", "casualties": 350, "economic_damage": 1200.0, "infrastructure_destruction": "Severe", "displaced_population": 45000, "impact_factor": 1.75, "escalation_potential": 9},
+            {"title": "US Federal Reserve Rate Decision", "description": "Fed signals potential rate hike in upcoming meeting", "event_type": "economic", "severity": 7, "impact_label": "HIGH", "source": "Bloomberg", "country_code": "US", "casualties": 0, "economic_damage": 2000.0, "infrastructure_destruction": "Minimal", "displaced_population": 0, "impact_factor": 1.3, "escalation_potential": 4},
+            {"title": "OPEC+ Production Cut", "description": "Saudi Arabia leads surprise oil production cut", "event_type": "economic", "severity": 8, "impact_label": "HIGH", "source": "CNBC", "country_code": "SA", "casualties": 0, "economic_damage": 1500.0, "infrastructure_destruction": "Minimal", "displaced_population": 0, "impact_factor": 1.3, "escalation_potential": 6},
+            {"title": "Iran Nuclear Talks Collapse", "description": "Diplomatic negotiations break down, sanctions expected", "event_type": "sanctions", "severity": 8, "impact_label": "ELEVATED", "source": "Al Jazeera", "country_code": "IR", "casualties": 0, "economic_damage": 80.0, "infrastructure_destruction": "Minimal", "displaced_population": 0, "impact_factor": 1.0, "escalation_potential": 7},
+            {"title": "China Rare Earth Export Restrictions", "description": "Beijing imposes new limits on critical mineral exports", "event_type": "sanctions", "severity": 7, "impact_label": "HIGH", "source": "Financial Times", "country_code": "CN", "casualties": 0, "economic_damage": 300.0, "infrastructure_destruction": "Minimal", "displaced_population": 0, "impact_factor": 1.15, "escalation_potential": 6},
+            {"title": "Israel-Hamas Conflict Intensifies", "description": "Major military operation launched in Gaza Strip", "event_type": "war", "severity": 9, "impact_label": "CRITICAL", "source": "CNN", "country_code": "IL", "casualties": 550, "economic_damage": 450.0, "infrastructure_destruction": "Severe", "displaced_population": 120000, "impact_factor": 1.85, "escalation_potential": 8},
+            {"title": "US-China Tech Sanctions", "description": "US imposes new semiconductor export controls on China", "event_type": "sanctions", "severity": 8, "impact_label": "HIGH", "source": "WSJ", "country_code": "US", "casualties": 0, "economic_damage": 500.0, "infrastructure_destruction": "Minimal", "displaced_population": 0, "impact_factor": 1.15, "escalation_potential": 7},
         ]
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         for i, e in enumerate(events_data):
             cc = e.pop("country_code")
             e["country_id"] = country_objs[cc].id

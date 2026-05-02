@@ -1,0 +1,39 @@
+# Databases
+*.db
+backend/app_sql.db
+
+# Environments and Keys
+.env
+*.env
+backend/.env
+frontend/my-app/.env
+
+# Python Virtual Environments
+venv/
+backend/venv/
+.venv/
+env/
+
+# Python Cache & Compiled Files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# IDE & Editor Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node.js dependencies
+node_modules/
+frontend/my-app/node_modules/
+
+# OS metadata
+.DS_Store
+Thumbs.db

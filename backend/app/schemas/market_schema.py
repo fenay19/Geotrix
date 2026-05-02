@@ -4,8 +4,11 @@ from datetime import datetime
 
 class MarketBase(BaseModel):
     symbol: str
+    name: Optional[str] = None
     price: float
     category: str
+    asset_class: Optional[str] = None   # Stocks|ETFs|Forex|Crypto|Commodities|Bonds|Indices
+    geo_sensitivity: Optional[float] = None  # 0.0-1.0
     is_global: bool = False
     country_id: Optional[int] = None
 
@@ -39,6 +42,22 @@ class Market(MarketBase):
     history: List[MarketHistory] = []
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MarketWithSignal(BaseModel):
+    """Lightweight market + latest signal summary for Signals list page."""
+    id: int
+    symbol: str
+    name: Optional[str] = None
+    price: Optional[float] = None
+    asset_class: Optional[str] = None
+    geo_sensitivity: Optional[float] = None
+    latest_signal_type: Optional[str] = None
+    latest_signal_confidence: Optional[float] = None
+    latest_signal_id: Optional[int] = None
 
     class Config:
         from_attributes = True

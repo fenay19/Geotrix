@@ -1,132 +1,361 @@
-import requests
-import json
+"""
+NewsPipeline: fetches global news, classifies geopolitical severity with AI,
+links each event to a country via EntityExtractor, and persists to the DB.
+
+Key fixes vs. original:
+  - Uses ChatEngine instead of raw requests.post
+  - Uses prompt_templates.NEWS_EVALUATION_PROMPT (no more inline string)
+  - Uses parse_json_response from helpers (no more duplicated strip logic)
+  - Uses EntityExtractor to resolve country_id (was always None before)
+  - Uses parse_newsapi_datetime / impact labels from constants
+  - Processes top 10 articles (was capped at 5)
+"""
+
+import logging
+import time
 from datetime import datetime
 from sqlalchemy.orm import Session
+
 from ..services.news_service import news_service
 from ..repositories.event_repo import EventRepository
+from ..repositories.risk_repo import CountryRiskRepository
 from ..schemas.event_schema import EventCreate
 from ..config import settings
+from ..ai.chatbot.chat_engine import get_chat_engine
+from ..ai.chatbot.prompt_templates import NEWS_EVALUATION_PROMPT
+from ..ai.nlp.entity_extraction import EntityExtractor
+from ..ai.embeddings.embedding_model import embedding_model
+from ..ai.embeddings.vector_store import vector_store
+from ..utils.date_utils import parse_newsapi_datetime
+from ..core.constants import IMPACT_CRITICAL, IMPACT_HIGH, IMPACT_ELEVATED
+from ..api.routes.ws import manager
 
-OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+logger = logging.getLogger("geotrade.pipelines.news")
+
+
+PILLAR_KEYWORDS = {
+    "military": {"war", "conflict", "military", "missile", "drone", "nuclear", "terrorism", "insurgency", "troops", "airstrike", "combat", "army", "navy", "clash", "bomb", "blast", "defense"},
+    "economic": {"sanctions", "export controls", "export restrictions", "tariffs", "trade war", "rare earths", "semiconductors", "supply chain disruption", "economic coercion", "embargo", "restrict trade"},
+    "energy": {"oil", "natural gas", "lng", "opec", "pipeline", "strait of hormuz", "red sea shipping", "energy security", "petroleum", "diesel"},
+    "cyber": {"cyberattack", "ransomware", "critical infrastructure", "espionage", "cyber warfare", "hack", "hacking", "malware", "ddos"}
+}
+
+HIGH_RISK_COUNTRIES = {
+    "china", "taiwan", "russia", "ukraine", "iran", "israel", "north korea", 
+    "south korea", "india", "pakistan", "nato", "eu", "united nations", "u.s.", "usa", "us", "uk", "united kingdom", "germany"
+}
+
+PRIORITY_SOURCES = {
+    "highest": {"reuters", "associated press", "ap", "bbc", "al jazeera", "financial times", "defense news", "bloomberg"},
+    "low": {"blog", "opinion", "medium.com", "substack", "wordpress", "gossip", "sports", "tony awards", "grammy", "oscar", "fashion"}
+}
+
 
 class NewsPipeline:
     """
-    Automated pipeline that fetches global news, uses AI to evaluate its 
+    Automated pipeline that fetches global news, uses AI to evaluate its
     geopolitical severity, and stores high-impact events in the database.
+    Each event is now linked to the correct country via entity extraction.
     """
 
-    def sync_geopolitical_events(self, db: Session) -> dict:
+    def calculate_relevance_score(self, title: str, summary: str, source: str) -> float:
         """
-        Fetches global news, classifies them via AI, and saves significant events.
+        Computes relevance score based on keyword categorization, country hotspots, and source tiers.
+        """
+        score = 0.0
+        text = f"{title} {summary}".lower()
+        
+        # 1. Pillar scoring (+15 points per unique matching category)
+        for pillar, keywords in PILLAR_KEYWORDS.items():
+            if any(kw in text for kw in keywords):
+                score += 15.0
+                
+        # 2. Country/hotspot boost (+10 points if any high-risk country is mentioned)
+        if any(country in text for country in HIGH_RISK_COUNTRIES):
+            score += 10.0
+            
+        # 3. Source priority ranking (+25 for highest tier, -20 for low tier/opinion/blog, +10 for medium)
+        src_lower = source.lower()
+        if any(hs in src_lower for hs in PRIORITY_SOURCES["highest"]):
+            score += 25.0
+        elif any(ls in src_lower for ls in PRIORITY_SOURCES["low"]):
+            score -= 20.0
+        else:
+            score += 10.0
+            
+        return score
+
+    async def sync_geopolitical_events(self, db: Session) -> dict:
+        """
+        Main entry point. Fetches news from two sources:
+          1. Top-headlines (general breaking news)
+          2. Geopolitical 'everything' search (sanctions, war, conflict, energy)
+        Classifies each article with AI, links to a country, and persists
+        events with severity >= 3. Uses DB-level + FAISS deduplication.
         """
         if not settings.NEWS_API_KEY:
             return {"status": "error", "message": "NEWS_API_KEY is not configured."}
-            
         if not settings.OPENAI_API_KEY:
             return {"status": "error", "message": "OPENAI_API_KEY is required to classify events."}
 
-        # 1. Fetch raw news
-        raw_news = news_service.get_geopolitical_news()
-        if not raw_news or "[Demo]" in raw_news[0].get("headline", ""):
-            return {"status": "error", "message": "Could not fetch valid news."}
+        # ── 1. Fetch news concurrently using asyncio.to_thread to prevent blocking the main event loop ──
+        import asyncio
+        (
+            raw_reuters,
+            raw_bbc,
+            raw_aljazeera,
+            raw_headlines,
+            raw_geo,
+            raw_gdelt,
+            raw_finnhub,
+        ) = await asyncio.gather(
+            asyncio.to_thread(news_service.get_reuters_news),
+            asyncio.to_thread(news_service.get_bbc_news),
+            asyncio.to_thread(news_service.get_aljazeera_news),
+            asyncio.to_thread(news_service.get_geopolitical_news),
+            asyncio.to_thread(news_service.get_geopolitical_everything),
+            asyncio.to_thread(news_service.get_gdelt_events),
+            asyncio.to_thread(news_service.get_market_news, "general"),
+        )
 
-        event_repo = EventRepository(db)
-        added_events = 0
+        # Merge and deduplicate by headline before processing
+        seen_titles: set = set()
+        raw_news: list = []
         
-        # 2. Process each article
-        # We only process the top 5 to save API tokens and time during sync
-        for article in raw_news[:5]:
-            title = article.get("headline", "")
-            summary = article.get("summary", "")
-            
-            # Use AI to evaluate this specific piece of news
-            analysis = self._evaluate_news_with_ai(title, summary)
-            
+        all_feeds = [
+            raw_reuters, raw_bbc, raw_aljazeera, raw_headlines, 
+            raw_geo, raw_gdelt, raw_finnhub
+        ]
+        for feed in all_feeds:
+            if not feed:
+                continue
+            for article in feed:
+                title = (article.get("headline") or "").strip()
+                if title and title not in seen_titles and "[Demo]" not in title:
+                    seen_titles.add(title)
+                    raw_news.append(article)
+
+        if not raw_news:
+            return {"status": "error", "message": "Could not fetch valid news from any source."}
+
+        # ── 2. Initialise helpers ─────────────────────────────────────────
+        engine    = get_chat_engine(settings.OPENAI_API_KEY)
+        extractor = EntityExtractor(api_key=settings.OPENAI_API_KEY)
+        embedder  = embedding_model
+        event_repo = EventRepository(db)
+        risk_repo  = CountryRiskRepository(db)
+        added_events = 0
+        # ── 3. Filter and Deduplicate Candidates First ────────────────────
+        candidates = []
+        for article in raw_news:
+            title = (article.get("headline") or "").strip()
+            summary = (article.get("summary") or "").strip()
+            if not title:
+                continue
+
+            # Check local relevance score
+            source = article.get("source") or "NewsAPI"
+            score = self.calculate_relevance_score(title, summary, source)
+            if score < 25.0:
+                logger.debug("Local Filter: Skipping low-relevance article (score=%.1f): '%s'", score, title[:50])
+                continue
+
+            # DB exact title check
+            if event_repo.exists_by_title(title):
+                logger.debug("Skipping already-saved event: '%s'", title[:60])
+                continue
+
+            candidates.append((article, score))
+
+        # Sort candidates by relevance score descending so we process the most relevant ones first
+        candidates.sort(key=lambda x: x[1], reverse=True)
+
+        # ── 4. Process articles (up to 30 highly relevant, new candidates) ─
+        for article, score in candidates[:30]:
+            if settings.IS_SHUTTING_DOWN:
+                logger.info("Application shutdown detected. Stopping geopolitical news sync.")
+                break
+            title   = (article.get("headline") or "").strip()
+            summary = (article.get("summary") or "").strip()
+
+            logger.info("Local Filter: Accepted high-relevance candidate (score=%.1f): '%s'", score, title[:50])
+
+            # ── Layer 2: Semantic FAISS dedup (catches paraphrases) ──────────
+            # Skip if embedder is in BOW fallback mode (dim=256, no HF/OpenAI key).
+            # BOW vectors are not semantically meaningful for similarity search.
+            try:
+                text_to_embed = f"{title} {summary[:400]}"
+                vec = embedder.get_embedding(text_to_embed)
+                is_bow_fallback = (vec is not None and len(vec) == 256)
+                if is_bow_fallback:
+                    logger.debug("Embedder in BOW fallback mode — skipping FAISS dedup for '%s'", title[:50])
+                else:
+                    matches = vector_store.search(vec, top_k=1, min_score=0.88)
+                    if matches:
+                        logger.info(
+                            "Skipping near-duplicate: '%s' matches '%s' (%.2f)",
+                            title[:50],
+                            matches[0]["metadata"].get("title", "")[:50],
+                            matches[0]["score"],
+                        )
+                        continue
+            except Exception as dedup_exc:
+                logger.warning("Semantic deduplication failed for '%s': %s", title[:60], dedup_exc)
+                vec = None
+
+            # Rate-limit guard: Groq free tier has strict TPM and RPM limits.
+            # 4.0s between calls prevents hitting Groq's 14,400 TPM/30 RPM limits on free tiers.
+            time.sleep(4.0)
+
+            analysis = self._evaluate_news_with_ai(engine, title, summary)
             if not analysis:
                 continue
-                
-            # If AI deems it low severity, we ignore it (don't clutter the DB)
-            if analysis.get("severity", 0) < 3:
-                continue
-                
-            # Format impact label based on severity
-            severity = analysis.get("severity", 5)
-            impact_label = "CRITICAL" if severity >= 8 else ("HIGH" if severity >= 6 else "ELEVATED")
 
-            # Create event in DB
+            severity = analysis.get("severity", 0)
+            if severity < 3:
+                continue  # low-impact: skip to avoid cluttering DB
+
+            # ── Severity → impact label ────────────────────────────────
+            if severity >= 8:
+                impact_label = IMPACT_CRITICAL
+            elif severity >= 6:
+                impact_label = IMPACT_HIGH
+            else:
+                impact_label = IMPACT_ELEVATED
+
+            # ── Casualty / Economic Impact Stats & Escalation ──────────
+            casualties = int(analysis.get("casualties", 0) or 0)
+            economic_damage = float(analysis.get("economic_damage_million_usd", 0.0) or 0.0)
+            infra_dest = str(analysis.get("infrastructure_destruction", "Minimal"))
+            displaced = int(analysis.get("displaced_population", 0) or 0)
+            escalation_potential = int(analysis.get("escalation_potential", 3))
+
+            # Programmatically calculate Impact Factor (1.0 to 2.0)
+            impact_factor = 1.0
+            if casualties >= 500:
+                impact_factor += 0.3
+            elif casualties >= 50:
+                impact_factor += 0.15
+
+            if economic_damage >= 1000.0:  # $1 Billion+
+                impact_factor += 0.3
+            elif economic_damage >= 100.0:  # $100 Million+
+                impact_factor += 0.15
+
+            if infra_dest.lower() == "severe":
+                impact_factor += 0.2
+            elif infra_dest.lower() == "moderate":
+                impact_factor += 0.1
+
+            if displaced >= 100000:
+                impact_factor += 0.2
+            elif displaced >= 10000:
+                impact_factor += 0.1
+
+            impact_factor = min(2.0, max(1.0, round(impact_factor, 2)))
+
+            # ── Country resolution (the critical fix) ─────────────────
+            country_id = self._resolve_country_id(extractor, risk_repo, title, summary)
+
+            # ── Timestamp ─────────────────────────────────────────────
+            ts = parse_newsapi_datetime(article.get("datetime", ""))
+
             try:
-                # We try to extract an ISO datetime, else fallback to now
-                ts = datetime.utcnow()
-                if article.get("datetime"):
-                    try:
-                        # Attempt to parse standard ISO 8601 from NewsAPI
-                        ts = datetime.fromisoformat(article.get("datetime").replace('Z', '+00:00'))
-                    except ValueError:
-                        pass
-                
                 event_in = EventCreate(
                     title=title,
                     description=summary,
                     event_type=analysis.get("event_type", "policy"),
                     severity=severity,
                     impact_label=impact_label,
+                    escalation_potential=escalation_potential,
+                    impact_factor=impact_factor,
+                    casualties=casualties,
+                    economic_damage=economic_damage,
+                    infrastructure_destruction=infra_dest,
+                    displaced_population=displaced,
                     source=article.get("source", "NewsAPI"),
                     timestamp=ts,
-                    country_id=None # Optionally we could have AI detect the country code and link it!
+                    country_id=country_id,
                 )
-                event_repo.create(event_in)
+                saved = event_repo.create(event_in)
                 added_events += 1
-            except Exception as e:
-                print(f"[ERROR] Failed to save evaluated event: {e}")
+
+                # ── Vector embedding (RAG indexing) ─────────────────────────
+                # Reuse vec from the dedup step above to avoid a 2nd API call.
+                try:
+                    if vec is None:
+                        text_to_embed = f"{title} {summary[:400]}"
+                        vec = embedder.get_embedding(text_to_embed)
+                    if vec is not None:
+                        vector_store.add_vector(
+                            id=f"event_{saved.id}",
+                            vector=vec,
+                            metadata={
+                                "title":      title,
+                                "summary":    summary[:300],
+                                "event_type": analysis.get("event_type", "policy"),
+                                "severity":   severity,
+                                "escalation_potential": escalation_potential,
+                                "impact_factor": impact_factor,
+                                "casualties": casualties,
+                                "economic_damage": economic_damage,
+                                "infrastructure_destruction": infra_dest,
+                                "displaced_population": displaced,
+                                "country_id": country_id,
+                            },
+                        )
+                        logger.debug("Embedded event_%d into vector store.", saved.id)
+                except Exception as embed_exc:
+                    logger.warning("Failed to embed event '%s': %s", title[:60], embed_exc)
+
+                logger.info(
+                    "Saved event: '%s' (severity=%d, country_id=%s)",
+                    title[:60], severity, country_id,
+                )
+            except Exception as exc:
+                logger.error("Failed to save event '%s': %s", title[:60], exc)
 
         return {
-            "status": "success", 
-            "articles_processed": len(raw_news[:5]), 
-            "events_added": added_events
+            "status": "success",
+            "articles_processed": len(raw_news[:30]),
+            "events_added": added_events,
         }
 
-    def _evaluate_news_with_ai(self, title: str, summary: str) -> dict:
-        """
-        Asks OpenAI to classify a news snippet for geopolitical impact.
-        """
-        api_key = settings.OPENAI_API_KEY
-        
-        prompt = f"""You are a geopolitical risk analyst.
-Analyze the following news article and determine its impact on global stability and financial markets.
+    # ── Private helpers ────────────────────────────────────────────────────
 
-Title: {title}
-Summary: {summary}
+    def _evaluate_news_with_ai(self, engine, title: str, summary: str) -> dict | None:
+        """
+        Asks OpenAI to classify a news snippet for severity and event_type.
+        Uses the centralized prompt template and ChatEngine.
+        """
+        prompt = NEWS_EVALUATION_PROMPT.format(title=title, summary=summary[:500])
+        result = engine.ask_json(prompt, temperature=0.2, max_tokens=150)
+        if result is None:
+            logger.warning("AI evaluation returned None for: %s", title[:60])
+        return result
 
-Respond ONLY with a valid JSON object matching this schema exactly (no markdown):
-{{
-  "severity": <integer from 1 to 10, where 10 is global war/catastrophe>,
-  "event_type": <string: exactly one of: "war", "sanctions", "economic", "policy", "unrest">,
-  "reasoning": "<one short sentence explaining the severity rating>"
-}}
-"""
+    def _resolve_country_id(
+        self, extractor: EntityExtractor, risk_repo, title: str, summary: str
+    ) -> int | None:
+        """
+        Uses EntityExtractor to get a country_code, then looks up its DB row.
+        Returns the country's integer PK or None if not found.
+        """
         try:
-            resp = requests.post(
-                OPENAI_API_URL,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "gpt-4o-mini",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.2,
-                    "max_tokens": 150,
-                },
-                timeout=15,
-            )
-            resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"]
-            # Clean up the response to ensure it parses
-            content = content.strip().strip("```json").strip("```").strip()
-            return json.loads(content)
-        except Exception as e:
-            print(f"[WARN] AI news evaluation failed: {e}")
-            return None
+            country_code, country_name = extractor.extract_country(title, summary)
+            if not country_code:
+                return None
+
+            # Look up the CountryRisk row by ISO code
+            country = risk_repo.get_by_code(country_code)
+            if country:
+                logger.debug("Resolved '%s' → country_id=%d", country_code, country.id)
+                return country.id
+
+            logger.debug("Country code '%s' not in DB yet.", country_code)
+        except Exception as exc:
+            logger.warning("Country resolution failed: %s", exc)
+        return None
 
 
 news_pipeline = NewsPipeline()

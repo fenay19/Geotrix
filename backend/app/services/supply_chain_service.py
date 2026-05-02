@@ -41,15 +41,46 @@ class SupplyChainService:
 
     # ── Analytics ───────────────────────────────────────────────────────────
 
-    def get_risk_graph(self, db: Session) -> dict:
+    def get_risk_graph(
+        self,
+        db: Session,
+        location: Optional[str] = None,
+        node_type: Optional[str] = None,
+        min_strength: Optional[float] = None,
+        dependency_type: Optional[str] = None
+    ) -> dict:
         """
-        Returns the full supply chain as a graph structure:
-        { nodes: [...], edges: [...] }
-        Ready for D3 / vis.js / react-flow visualizations on the frontend.
+        Returns the supply chain as a graph structure, with optional filtering:
+        - location: case-insensitive node location filter
+        - node_type: exact node type filter (e.g. 'resource', 'industry')
+        - min_strength: minimum dependency strength (0.0 to 1.0)
+        - dependency_type: exact dependency type filter
         """
         repo = SupplyChainRepository(db)
         nodes = repo.get_all_nodes()
         edges = repo.get_all_dependencies()
+
+        # Filter nodes
+        filtered_nodes = []
+        for n in nodes:
+            if location and location.lower() not in n.location.lower():
+                continue
+            if node_type and node_type.lower() != n.type.lower():
+                continue
+            filtered_nodes.append(n)
+
+        filtered_node_ids = {n.id for n in filtered_nodes}
+
+        # Filter edges (dependencies)
+        filtered_edges = []
+        for e in edges:
+            if min_strength is not None and e.dependency_strength < min_strength:
+                continue
+            if dependency_type and dependency_type.lower() != e.dependency_type.lower():
+                continue
+            # Ensure edges connect only active/filtered nodes
+            if e.source_node_id in filtered_node_ids and e.target_node_id in filtered_node_ids:
+                filtered_edges.append(e)
 
         return {
             "nodes": [
@@ -59,7 +90,7 @@ class SupplyChainService:
                     "location": n.location,
                     "type": n.type,
                 }
-                for n in nodes
+                for n in filtered_nodes
             ],
             "edges": [
                 {
@@ -69,7 +100,7 @@ class SupplyChainService:
                     "type": e.dependency_type,
                     "strength": e.dependency_strength,
                 }
-                for e in edges
+                for e in filtered_edges
             ],
         }
 

@@ -1,6 +1,10 @@
 from sqlalchemy.orm import Session
+import logging
 from ..services.market_service import market_service
 from ..services.market_data_service import market_data_service
+from ..config import settings
+
+logger = logging.getLogger("geotrade.pipelines.market")
 
 
 class MarketPipeline:
@@ -35,8 +39,19 @@ class MarketPipeline:
         candles_inserted = 0
         errors = []
 
+        import re
+        VALID_SYMBOL_PATTERN = re.compile(r'^[A-Z0-9^=\-\._]{1,15}$')
+
         for market in markets:
+            if settings.IS_SHUTTING_DOWN:
+                logger.info("Application shutdown detected. Stopping market data sync.")
+                break
             symbol = market.symbol
+
+            # Validate symbol to avoid fetching garbage (e.g., placeholder "STRING")
+            if not symbol or not VALID_SYMBOL_PATTERN.match(symbol.upper()):
+                logger.warning("Skipping invalid market symbol: %r", symbol)
+                continue
 
             # ── 1. Sync live price ──────────────────────────────────────────
             try:

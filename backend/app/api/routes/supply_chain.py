@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from ...schemas.supply_chain_schema import (
     SupplyChainNode, SupplyChainNodeCreate,
     SupplyChainDependency, SupplyChainDependencyCreate,
@@ -52,12 +52,31 @@ def create_dependency(dep_in: SupplyChainDependencyCreate, db: Session = Depends
 
 
 @router.get("/graph")
-def get_risk_graph(db: Session = Depends(get_db)):
-    """Returns the full supply chain as a nodes+edges graph for frontend visualization."""
-    return supply_chain_service.get_risk_graph(db)
+def get_risk_graph(
+    location: Optional[str] = None,
+    node_type: Optional[str] = None,
+    min_strength: Optional[float] = None,
+    dependency_type: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Returns the supply chain as a nodes+edges graph, with optional filtering:
+    - location: filter nodes by location (e.g. Taiwan, China, Saudi Arabia)
+    - node_type: filter nodes by type (resource, industry)
+    - min_strength: filter connections by minimum dependency strength (0.0 to 1.0)
+    - dependency_type: filter connections by type (critical_input, major_input)
+    """
+    return supply_chain_service.get_risk_graph(
+        db,
+        location=location,
+        node_type=node_type,
+        min_strength=min_strength,
+        dependency_type=dependency_type
+    )
 
 
 @router.get("/critical-nodes")
 def get_critical_nodes(min_dependents: int = 2, db: Session = Depends(get_db)):
     """Returns nodes identified as chokepoints based on how many others depend on them."""
     return supply_chain_service.get_critical_nodes(db, min_dependents)
+
