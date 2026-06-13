@@ -10,25 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.0",
-    "@tanstack/react-query": "^5.101.0",
-    "axios": "^1.17.0",
-    "framer-motion": "^12.40.0",
-    "lightweight-charts": "^5.2.0",
-    "lucide-react": "^1.17.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-force-graph-2d": "^1.29.1",
-    "react-globe.gl": "^2.38.0",
-    "react-hook-form": "^7.78.0",
-    "react-markdown": "^10.1.0",
-    "react-router-dom": "^7.17.0",
-    "react-simple-maps": "^3.0.0",
-    "recharts": "^3.8.1",
-    "sonner": "^2.0.7",
-    "tailwindcss": "^4.3.0",
-    "zod": "^4.4.3",
-    "zustand": "^5.0.14"
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
