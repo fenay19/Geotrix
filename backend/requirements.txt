@@ -1,0 +1,28 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.2
+pydantic-settings==2.1.0
+sqlalchemy==2.0.23
+alembic==1.12.1
+python-dotenv==1.0.0
+requests==2.31.0
+psycopg2-binary==2.9.9
+email-validator==2.1.0.post1
+pytest==7.4.3
+httpx>=0.23.0,<0.24.0
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.6
+
+# ── Stage 3: Monte Carlo Simulation ──────────────────────────────────────────
+numpy>=1.26.0
+
+# ── Stage 2: ML Model (install when ready to train) ──────────────────────────
+xgboost>=2.0.0
+scikit-learn>=1.4.0
+pandas>=2.1.0
+yfinance>=0.2.38
+joblib>=1.3.0
+torch>=2.0.0
+faiss-cpu>=1.7.4
+

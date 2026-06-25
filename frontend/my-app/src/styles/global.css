@@ -1,0 +1,136 @@
+@import './tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-bright);
+  border-radius: var(--radius-sm);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-hover);
+}
+
+/* Accessibility focus rings */
+input:focus, select:focus, textarea:focus, button:focus, a:focus {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+/* Basic Link Styles */
+a {
+  color: var(--accent-cyan);
+  text-decoration: none;
+  transition: color var(--transition-fast) var(--ease-snap);
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* Shimmer animation for skeleton states */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-hover) 50%, var(--bg-elevated) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Live indicators */
+@keyframes ping {
+  0% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(0, 255, 136, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
+}
+
+@keyframes ping-amber {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.live-dot-green {
+  background-color: var(--accent-green);
+  animation: ping 2s infinite;
+}
+
+.live-dot-amber {
+  background-color: var(--accent-amber);
+  animation: ping-amber 3s infinite;
+}
+
+.live-dot-red {
+  background-color: var(--accent-red);
+}
+
+/* Leaflet Map overrides */
+.leaflet-container {
+  background-color: #0c0e12 !important;
+  font-family: var(--font-display) !important;
+}
+
+.leaflet-bar {
+  border: 1px solid var(--border-bright) !important;
+  background: var(--bg-elevated) !important;
+  box-shadow: none !important;
+}
+
+.leaflet-bar a {
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border) !important;
+  transition: background var(--transition-fast) var(--ease-snap) !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.leaflet-popup-tip {
+  background-color: var(--bg-elevated) !important;
+  border: 1px solid var(--border-bright) !important;
+}
+
+.leaflet-tooltip {
+  background-color: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: var(--text-sm) !important;
+  padding: 6px 10px !important;
+}
