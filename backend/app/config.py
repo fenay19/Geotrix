@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     DEBUG: bool = True
 
+    # Guest Analyst credentials (moved from code to settings)
+    GUEST_ANALYST_EMAIL: str = "analyst@geotrade.ai"
+    GUEST_ANALYST_PASSWORD: str = "geotrade2026"
+
+
     # CORS — list of allowed origins (comma-separated in .env).
     # Do NOT use "*" combined with allow_credentials=True (violates CORS spec).
     # Add your production domain here when deploying.

@@ -219,8 +219,8 @@ async def lifespan(app: FastAPI):
         from .core.security import get_password_hash
         db_user_setup = SessionLocal()
         try:
-            guest_email = "analyst@geotrade.ai"
-            guest_pass = "geotrade2026"
+            guest_email = settings.GUEST_ANALYST_EMAIL
+            guest_pass = settings.GUEST_ANALYST_PASSWORD
             guest = db_user_setup.query(User).filter(User.email == guest_email).first()
             if guest:
                 if not guest.is_superuser:
