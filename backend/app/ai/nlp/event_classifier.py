@@ -1,6 +1,11 @@
 """
 Event classifier: maps raw news text to one of the canonical GeoTrade event types.
 Valid types: war, conflict, sanctions, economic, policy, unrest
+
+Upgraded (Phase 1):
+  PRIMARY:   Local Zero-Shot NLI (DistilRoBERTa) via zero_shot_classifier.
+  SECONDARY: Keyword rules.
+  TERTIARY:  OpenAI fallback (only if api_key set and above failed).
 """
 
 import logging
@@ -9,10 +14,11 @@ from typing import Optional
 from ...utils.api_clients import api_client
 from ...utils.helpers import parse_json_response
 from ...core.constants import DEFAULT_AI_MODEL, OPENAI_API_URL, EVENT_TYPES
+from .zero_shot_classifier import zero_shot_classifier
 
 logger = logging.getLogger("geotrade.nlp.event_classifier")
 
-# Keyword → event_type mapping for the free fallback
+# Keyword → event_type mapping for the keyword fallback
 _KEYWORD_RULES = {
     "war":       ["war", "warfare", "military operation", "combat", "airstrike"],
     "conflict":  ["conflict", "clash", "fight", "battle", "skirmish", "troops"],
@@ -36,7 +42,11 @@ Respond ONLY with a valid JSON object (no markdown):
 class EventClassifier:
     """
     Classifies a news headline + summary into a canonical event_type.
-    Uses keyword rules first (free), falls back to OpenAI when ambiguous.
+
+    Priority chain:
+      1. Zero-Shot NLI (local DistilRoBERTa) — fast, free, no rate limits.
+      2. Keyword rules — deterministic fallback.
+      3. OpenAI API — only if api_key provided and both above fail.
     """
 
     def __init__(self, api_key: Optional[str] = None):
@@ -54,18 +64,31 @@ class EventClassifier:
         Classifies a news event. Returns one of: war, conflict, sanctions,
         economic, policy, unrest.
         """
-        combined = f"{title} {summary}".lower()
+        combined = f"{title} {summary}".strip()
 
-        # Step 1: keyword rules (free)
+        # Step 1: Zero-Shot NLI (local, primary)
+        try:
+            event_type = zero_shot_classifier.classify_to_event_type(combined)
+            if event_type in EVENT_TYPES:
+                logger.debug(
+                    "Zero-shot NLI classified '%s...' → %s",
+                    combined[:60], event_type,
+                )
+                return event_type
+        except Exception as exc:
+            logger.warning("Zero-shot classifier failed: %s", exc)
+
+        # Step 2: Keyword rules
+        lower  = combined.lower()
         scores = {etype: 0 for etype in EVENT_TYPES}
         for etype, keywords in _KEYWORD_RULES.items():
-            scores[etype] = sum(1 for kw in keywords if kw in combined)
+            scores[etype] = sum(1 for kw in keywords if kw in lower)
 
         best = max(scores, key=scores.get)
         if scores[best] > 0:
             return best
 
-        # Step 2: OpenAI fallback
+        # Step 3: OpenAI fallback
         if self.api_key:
             result = self._openai_classify(title, summary)
             if result:

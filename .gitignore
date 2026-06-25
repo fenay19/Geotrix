@@ -37,3 +37,12 @@ frontend/my-app/node_modules/
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Logs and Simulation outputs
+*.txt
+backend/simulation_output.txt
+
+# Machine Learning weights/indexes
+*.pkl
+*.index
+

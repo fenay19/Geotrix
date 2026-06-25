@@ -138,13 +138,45 @@ with engine.connect() as _conn:
             except Exception as e:
                 logger.error("Failed to add trading_signals.%s: %s", col, e)
 
+    # 6. Ensure supply_chain_simulation_runs table exists (new BFS simulation engine)
+    try:
+        _conn.execute(text("SELECT id FROM supply_chain_simulation_runs LIMIT 1"))
+    except Exception:
+        try:
+            logger.info("Creating supply_chain_simulation_runs table...")
+            _conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS supply_chain_simulation_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source_node_id INTEGER REFERENCES supply_chain_nodes(id),
+                    source_node_name VARCHAR NOT NULL,
+                    severity FLOAT NOT NULL,
+                    disruption_type VARCHAR DEFAULT 'Blockade',
+                    apply_variability BOOLEAN DEFAULT 1,
+                    affected_nodes_json JSON,
+                    logs_json JSON,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            _conn.commit()
+            logger.info("supply_chain_simulation_runs table created.")
+        except Exception as e:
+            logger.error("Failed to create supply_chain_simulation_runs table: %s", e)
+
 logger.info("Database tables created/verified.")
+
 
 
 # ── Lifespan: replaces deprecated @app.on_event("startup") ───────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handles startup and (future) shutdown logic via the modern lifespan API."""
+    import sys
+    if "pytest" in sys.modules:
+        logger.info("Lifespan: running in testing mode. Skipping database seeding and warm-up.")
+        yield
+        logger.info("Lifespan: testing mode shutdown.")
+        return
+
     logger.info("GeoTrade Backend starting up...")
 
     # Clean up any leftover test placeholder market records (e.g., 'STRING')
@@ -228,6 +260,13 @@ async def lifespan(app: FastAPI):
             )
             vector_store.clear()
 
+        # Always wipe the on-disk index and rebuild fresh from the current DB.
+        # Keeping the old persisted index causes stale vectors from previous runs
+        # to accumulate, which inflates the dedup index and blocks new events from
+        # being ingested (every new article scores >0.88 against 100s of old vectors).
+        vector_store.clear()
+        logger.info("VectorStore: Cleared stale persisted index. Rebuilding from DB...")
+
         # Populate in-memory vector store with existing database events
         from .database.db import SessionLocal
         from .repositories.event_repo import EventRepository
@@ -253,12 +292,23 @@ async def lifespan(app: FastAPI):
                         },
                     )
                 logger.info("Vector Store indexing complete. Total vectors: %d", vector_store.count())
+            else:
+                logger.info("VectorStore: No existing events in DB. Starting fresh.")
         finally:
             db.close()
 
         logger.info("Vector Store warmed up successfully.")
     except Exception as e:
         logger.error("Vector Store warm-up failed: %s", e)
+
+    # Warm up ML Models (Phase 4 startup optimization)
+    try:
+        logger.info("Loading ML models...")
+        from .ml.inference.ml_predictor import ml_predictor
+        ml_predictor.load_models()
+        logger.info("ML models loaded successfully.")
+    except Exception as e:
+        logger.error("Failed to load ML models at startup: %s", e)
 
     # Log API key availability (values are never logged)
     logger.info("OpenAI API Key : %s", "Set" if settings.OPENAI_API_KEY else "MISSING")

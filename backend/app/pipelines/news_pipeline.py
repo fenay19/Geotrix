@@ -12,6 +12,8 @@ Key fixes vs. original:
 """
 
 import logging
+import asyncio
+import hashlib
 import time
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -24,6 +26,8 @@ from ..config import settings
 from ..ai.chatbot.chat_engine import get_chat_engine
 from ..ai.chatbot.prompt_templates import NEWS_EVALUATION_PROMPT
 from ..ai.nlp.entity_extraction import EntityExtractor
+from ..ai.nlp.zero_shot_classifier import zero_shot_classifier
+from ..ai.nlp.sentiment_analysis import SentimentAnalyzer
 from ..ai.embeddings.embedding_model import embedding_model
 from ..ai.embeddings.vector_store import vector_store
 from ..utils.date_utils import parse_newsapi_datetime
@@ -180,17 +184,25 @@ class NewsPipeline:
 
             logger.info("Local Filter: Accepted high-relevance candidate (score=%.1f): '%s'", score, title[:50])
 
+            # ── Layer 1b: Local NLP ─ SHA-256 dedup (fast, no API call) ───────────────
+            article_hash = hashlib.sha256(
+                f"{title}{summary[:200]}".encode("utf-8")
+            ).hexdigest()[:16]
+            logger.debug("Article hash: %s for '%s'", article_hash, title[:40])
+
             # ── Layer 2: Semantic FAISS dedup (catches paraphrases) ──────────
             # Skip if embedder is in BOW fallback mode (dim=256, no HF/OpenAI key).
             # BOW vectors are not semantically meaningful for similarity search.
             try:
                 text_to_embed = f"{title} {summary[:400]}"
-                vec = embedder.get_embedding(text_to_embed)
+                vec = await asyncio.to_thread(embedder.get_embedding, text_to_embed)
                 is_bow_fallback = (vec is not None and len(vec) == 256)
                 if is_bow_fallback:
                     logger.debug("Embedder in BOW fallback mode — skipping FAISS dedup for '%s'", title[:50])
                 else:
-                    matches = vector_store.search(vec, top_k=1, min_score=0.88)
+                    # 0.95+ = near-identical paraphrase; 0.88 was too aggressive
+                    # and blocked genuinely new events about ongoing topics
+                    matches = vector_store.search(vec, top_k=1, min_score=0.95)
                     if matches:
                         logger.info(
                             "Skipping near-duplicate: '%s' matches '%s' (%.2f)",
@@ -203,11 +215,21 @@ class NewsPipeline:
                 logger.warning("Semantic deduplication failed for '%s': %s", title[:60], dedup_exc)
                 vec = None
 
-            # Rate-limit guard: Groq free tier has strict TPM and RPM limits.
-            # 4.0s between calls prevents hitting Groq's 14,400 TPM/30 RPM limits on free tiers.
-            time.sleep(4.0)
+            # ── Local NLP classification + sentiment (Phase 1: replaces 4.0s sleep) ───
+            local_event_type = zero_shot_classifier.classify_to_event_type(
+                f"{title} {summary[:300]}"
+            )
+            sentiment_analyzer = SentimentAnalyzer()
+            local_sentiment    = sentiment_analyzer.analyze(f"{title} {summary[:300]}")
+            logger.debug(
+                "Local NLP: event_type=%s  sentiment=%s (%.3f) via %s",
+                local_event_type,
+                local_sentiment["sentiment"],
+                local_sentiment["score_signed"],
+                local_sentiment.get("source", "?"),
+            )
 
-            analysis = self._evaluate_news_with_ai(engine, title, summary)
+            analysis = await asyncio.to_thread(self._evaluate_news_with_ai, engine, title, summary, local_event_type)
             if not analysis:
                 continue
 
@@ -285,7 +307,7 @@ class NewsPipeline:
                 try:
                     if vec is None:
                         text_to_embed = f"{title} {summary[:400]}"
-                        vec = embedder.get_embedding(text_to_embed)
+                        vec = await asyncio.to_thread(embedder.get_embedding, text_to_embed)
                     if vec is not None:
                         vector_store.add_vector(
                             id=f"event_{saved.id}",
@@ -317,21 +339,30 @@ class NewsPipeline:
 
         return {
             "status": "success",
-            "articles_processed": len(raw_news[:30]),
+            "articles_fetched": len(raw_news),
+            "articles_processed": len(candidates[:30]),
             "events_added": added_events,
         }
 
     # ── Private helpers ────────────────────────────────────────────────────
 
-    def _evaluate_news_with_ai(self, engine, title: str, summary: str) -> dict | None:
+    def _evaluate_news_with_ai(
+        self, engine, title: str, summary: str,
+        local_event_type: str = "policy"
+    ) -> dict | None:
         """
-        Asks OpenAI to classify a news snippet for severity and event_type.
-        Uses the centralized prompt template and ChatEngine.
+        Asks the LLM to evaluate severity and impact stats.
+        The event_type is pre-filled by the local zero-shot classifier,
+        so the LLM only needs to assess severity/casualties — fewer tokens.
         """
         prompt = NEWS_EVALUATION_PROMPT.format(title=title, summary=summary[:500])
         result = engine.ask_json(prompt, temperature=0.2, max_tokens=150)
         if result is None:
             logger.warning("AI evaluation returned None for: %s", title[:60])
+            return None
+        # Override event_type with the locally computed one (more accurate)
+        if local_event_type:
+            result["event_type"] = local_event_type
         return result
 
     def _resolve_country_id(

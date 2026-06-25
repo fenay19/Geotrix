@@ -1,8 +1,37 @@
-from pydantic import BaseModel, Field
+import math
+from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 from typing import Literal, Optional
 
+def clean_nan_inf_before(cls, data):
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                if k in cls.model_fields and not cls.model_fields[k].is_required():
+                    data[k] = None
+                else:
+                    data[k] = 0.0
+        return data
+    else:
+        obj_dict = {}
+        for k in cls.model_fields.keys():
+            if hasattr(data, k):
+                v = getattr(data, k)
+                if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                    if not cls.model_fields[k].is_required():
+                        obj_dict[k] = None
+                    else:
+                        obj_dict[k] = 0.0
+                else:
+                    obj_dict[k] = v
+        return obj_dict
+
 class SignalBase(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def clean_nan_inf(cls, data):
+        return clean_nan_inf_before(cls, data)
+
     market_id: int
     event_id: Optional[int] = None
     signal_type: Literal["BUY", "SELL", "HOLD"]
@@ -28,6 +57,10 @@ class SignalBase(BaseModel):
     max_drawdown: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     annual_reliability_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     triggering_event: Optional[str] = None
+    avg_return: Optional[float] = None
+    hold_days: Optional[float] = None
+    total_runs: Optional[int] = None
+    past_signals: Optional[list] = None
 
 class SignalCreate(SignalBase):
     pass

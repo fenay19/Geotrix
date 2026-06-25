@@ -32,7 +32,7 @@ class MarketDataService:
         repo.update_price(symbol, quote["c"])
         return True
 
-    def sync_historical_candles(self, db: Session, symbol: str, days: int = 30) -> int:
+    def sync_historical_candles(self, db: Session, symbol: str, days: int = 180) -> int:
         """
         Fetches historical OHLC data and populates the MarketHistory table.
         Skips rows that already exist for the same (market_id, timestamp) to prevent duplicates.
@@ -72,7 +72,7 @@ class MarketDataService:
             if candle_dt in existing_ts:
                 continue   # skip duplicate
 
-            history_in = MarketHistoryCreate(
+            db_history = MarketHistory(
                 market_id=market.id,
                 open=data["o"][i],
                 high=data["h"][i],
@@ -81,8 +81,11 @@ class MarketDataService:
                 volume=data["v"][i] if "v" in data else 0,
                 timestamp=candle_dt,
             )
-            repo.add_history(history_in)
+            db.add(db_history)
             count += 1
+
+        if count > 0:
+            db.commit()
 
         logger.debug("Inserted %d new candles for %s (skipped duplicates).", count, symbol)
         return count

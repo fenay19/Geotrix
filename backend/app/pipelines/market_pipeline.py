@@ -14,13 +14,13 @@ class MarketPipeline:
     live quotes and fetches historical OHLC candles.
     """
 
-    def sync_all_markets(self, db: Session, history_days: int = 30) -> dict:
+    def sync_all_markets(self, db: Session, history_days: int = 180) -> dict:
         """
         Syncs live prices and historical candle data for every market in the DB.
 
         Args:
             db:             SQLAlchemy session.
-            history_days:  How many days of historical candles to fetch (default 30).
+            history_days:  How many days of historical candles to fetch (default 180).
 
         Returns:
             Summary dict with counts of updated prices and inserted candles.

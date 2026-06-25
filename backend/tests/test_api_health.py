@@ -35,3 +35,13 @@ def test_openapi_schema():
     path_keys = list(paths.keys())
     assert any("/signals" in p for p in path_keys), "Signal routes missing from schema"
     assert any("/auth" in p for p in path_keys), "Auth routes missing from schema"
+
+
+def test_forgot_password():
+    """POST /api/v1/auth/forgot-password should return 200."""
+    with TestClient(app) as client:
+        resp = client.post("/api/v1/auth/forgot-password", json={"email": "test@geotrade.ai"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "success"
+

@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from ...core.security import create_access_token
 from ...services.user_service import user_service
-from ...schemas.user_schema import User, UserCreate
+from ...schemas.user_schema import User, UserCreate, ForgotPasswordRequest
 from ...dependencies import get_db, get_current_user
 from ...config import settings
 
@@ -88,3 +88,21 @@ def read_users_me(current_user: User = Depends(get_current_user)):
     Requires a valid access token cookie or Bearer token in the Authorization header.
     """
     return current_user
+
+
+@router.post("/forgot-password")
+def forgot_password(
+    request_in: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Initiate password reset.
+    - Always returns a success message to prevent email enumeration.
+    """
+    user = user_service.get_user_by_email(db, email=request_in.email)
+    if user:
+        import logging
+        auth_logger = logging.getLogger("geotrade.auth")
+        auth_logger.info("[AUTH] Password reset link requested for user: %s", request_in.email)
+    return {"status": "success", "message": "If an account is registered with this email, a reset link has been sent."}
+

@@ -1,0 +1,59 @@
+:root {
+  /* Backgrounds */
+  --bg-base:        #0a0b0d;
+  --bg-surface:     #111318;
+  --bg-elevated:    #1a1d24;
+  --bg-hover:       #22262f;
+
+  /* Borders */
+  --border:         #1f2330;
+  --border-bright:  #2d3344;
+
+  /* Text */
+  --text-primary:   #e8ecf0;
+  --text-secondary: #7d8799;
+  --text-muted:     #4a5265;
+
+  /* Accents */
+  --accent-green:   #00ff88;
+  --accent-cyan:    #06b6d4;
+  --accent-amber:   #f59e0b;
+  --accent-red:     #ef4444;
+  --accent-purple:  #a78bfa;
+
+  /* Risk tiers */
+  --risk-critical:  #ef4444;   /* score >= 80 */
+  --risk-high:      #f59e0b;   /* score >= 60 */
+  --risk-medium:    #06b6d4;   /* score >= 35 */
+  --risk-low:       #22c55e;   /* score < 35  */
+
+  /* Typography */
+  --font-display:  'Space Grotesk', sans-serif;
+  --font-mono:     'JetBrains Mono', monospace;
+
+  /* Type scale */
+  --text-xs:    10px;   /* uppercase labels, eyebrows — letter-spacing 0.08em */
+  --text-sm:    12px;   /* timestamps, meta */
+  --text-base:  14px;   /* body, table rows */
+  --text-md:    16px;   /* card titles */
+  --text-lg:    20px;   /* section headers */
+  --text-xl:    28px;   /* GTI score, asset price */
+  --text-2xl:   42px;   /* hero headline */
+
+  /* Spacing */
+  --gap-xs:  4px;
+  --gap-sm:  8px;
+  --gap-md:  16px;
+  --gap-lg:  24px;
+  --gap-xl:  40px;
+
+  /* Radius */
+  --radius-sm:  4px;
+  --radius-md:  6px;
+  --radius-lg:  10px;
+
+  /* Motion */
+  --ease-snap:      cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: 150ms;
+  --transition-panel: 300ms;
+}

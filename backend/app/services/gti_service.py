@@ -8,6 +8,8 @@ P0 Upgrades applied:
   4. Two-speed recency decay: structural events decay slowly, tactical events fast.
   5. Revised pillar weights (peer-reviewed): 32/22/16/10/12/8.
   6. 4-level severity scale: LOW / MEDIUM / HIGH / CRITICAL.
+  7. Per-event normalization: S_net is divided by N before saturation, so adding
+     more articles does not artificially inflate scores.
 
 Formula reference:
   Influence_norm  = I / I_max                        → [0, 1]
@@ -17,9 +19,12 @@ Formula reference:
   ES_blended      = 0.65 × Log_intensity + 0.35 × EP_norm
   R(t)            = exp(-λ × t)   λ varies by event class
   ES_final        = Polarity × ES_blended × 100 × R(t) → [-100, +100]
+  S_net_avg       = Σ(ES_final × R(t)) / N            → per-event avg [-100, +100]
 
   Pillar (Bayesian-shrunk):
-    P_score = (N × P_observed + k × μ_prior) / (N + k)
+    P_score = prior + (100 - prior) × (1 - exp(-γ × S_net_avg))
+    γ = 0.02   (calibrated for per-event average; saturates near 85 at typical
+                high-crisis intensity ~80, reaching ~100 only at max sustained intensity)
     k = 3   (prior strength — equivalent to 3 pseudo-observations)
 
   GTI = Σ(P_score × PillarWeight), clamped to [0, 100]
@@ -49,6 +54,18 @@ _LOG_SCALE_DENOM: float = math.log(1 + _RAW_INTENSITY_MAX)  # ln(201) ≈ 5.303
 
 # Bayesian prior strength: k pseudo-observations from the historical mean
 _PRIOR_STRENGTH: int = 3
+
+# Saturation scaling constants.
+# γ is calibrated for the PER-EVENT average S_net_avg (range ≈ [-100, +100]).
+# At γ=0.02:
+#   avg intensity 80 (major war)   → f_pos ≈ 0.80  → pillar rises to ~88
+#   avg intensity 50 (heavy sanct) → f_pos ≈ 0.63  → pillar rises to ~77
+#   avg intensity 20 (moderate)    → f_pos ≈ 0.33  → pillar rises to ~59
+# Score only reaches 100 when sustained avg intensity is near its maximum (~95+).
+_GAMMA_POS: float = 0.02
+_GAMMA_NEG: float = 0.02
+_PILLAR_MIN_SCORE: float = 10.0
+
 
 # Cold-start pillar priors (used when <90 days of history exist).
 # Based on long-run geopolitical baselines (IISS, GPR Index, World Bank).
@@ -180,6 +197,23 @@ class GTIService:
         "ID": (2.5,  4.0,  5.0,  7.0),
         "PK": (1.5,  6.0,  3.0,  4.0),
         "KP": (0.2,  7.0,  0.5,  3.0),
+        "IT": (4.0,  4.5,  7.0,  3.0),
+        "ES": (3.5,  4.0,  6.5,  2.5),
+        "NL": (3.0,  3.5,  8.5,  4.0),
+        "SG": (2.0,  3.5,  8.0,  2.0),
+        "CH": (2.5,  2.5,  7.0,  2.0),
+        "PL": (2.5,  4.5,  6.0,  4.0),
+        "VN": (2.0,  4.0,  6.5,  3.0),
+        "PH": (1.5,  3.5,  5.0,  3.0),
+        "MY": (2.0,  3.5,  6.0,  6.0),
+        "TH": (2.0,  3.5,  6.0,  4.0),
+        "EG": (1.5,  5.0,  4.0,  5.0),
+        "NG": (1.5,  3.5,  4.0,  8.0),
+        "AR": (2.0,  3.0,  4.5,  5.5),
+        "CO": (1.5,  3.5,  4.0,  6.0),
+        "CL": (1.5,  3.0,  4.5,  4.0),
+        "QA": (1.5,  3.0,  4.0,  9.0),
+        "AE": (2.5,  4.0,  6.0,  8.0),
     }
     # Precomputed: I_max used for normalization
     _I_MAX: float = max(
@@ -253,36 +287,39 @@ class GTIService:
             mu_prior = pillar_priors[p_name]
 
             if n_events == 0:
-                # P0 Fix: Use Bayesian historical prior, NOT arbitrary 50
+                # Use Bayesian historical prior if no events exist
                 pillar_scores[p_name] = mu_prior
                 logger.debug("[GTI] Pillar '%s' has no events -> using prior %.1f", p_name, mu_prior)
                 continue
 
-            total_weighted_score = 0.0
-            total_recency_weight = 0.0
-
+            # Calculate cumulative net event pressure S_net
+            s_net = 0.0
             for event in p_events:
                 es_final = self._score_event(event, influence_map, now)
-                # Recency weight is already baked into es_final via R(t).
-                # We also need the raw R(t) to normalise the weighted average.
                 recency_weight = self._recency_weight(event, now)
-                total_weighted_score += es_final * recency_weight
-                total_recency_weight += recency_weight
+                s_net += es_final * recency_weight
 
-            if total_recency_weight > 0:
-                p_observed = total_weighted_score / total_recency_weight
+            # ── Per-event normalization (P0 saturation fix) ───────────────────
+            # Divide by n_events so the score reflects average event intensity,
+            # not total volume. Without this, 78 events trivially push s_net to
+            # 4000+, making f_pos ≈ 1.0 and every active pillar saturate at 100.
+            # S_net_avg stays in [-100, +100] — the same range as ES_final.
+            s_net_avg = s_net / n_events
+
+            # Apply Saturation Scaling Functions
+            if s_net_avg > 1e-9:
+                # Escalation: score increases from prior towards 100
+                f_pos = 1.0 - math.exp(-_GAMMA_POS * s_net_avg)
+                p_score = mu_prior + (100.0 - mu_prior) * f_pos
+            elif s_net_avg < -1e-9:
+                # De-escalation: score decreases from prior towards floor of 10.0
+                f_neg = 1.0 - math.exp(-_GAMMA_NEG * abs(s_net_avg))
+                p_score = _PILLAR_MIN_SCORE + (mu_prior - _PILLAR_MIN_SCORE) * (1.0 - f_neg)
             else:
-                p_observed = mu_prior
+                p_score = mu_prior
 
-            # ── Bayesian shrinkage toward historical prior ────────────────────
-            # P_score = (N x P_observed + k x mu_prior) / (N + k)
-            # Prevents a single event from dominating a sparse pillar.
-            p_score_shrunk = (
-                (n_events * p_observed + _PRIOR_STRENGTH * mu_prior)
-                / (n_events + _PRIOR_STRENGTH)
-            )
-            # Clamp pillar score to [0, 100]
-            pillar_scores[p_name] = round(max(0.0, min(100.0, p_score_shrunk)), 1)
+            # Clamp and round pillar score to [0, 100]
+            pillar_scores[p_name] = round(max(0.0, min(100.0, p_score)), 1)
 
         # ── 6. Aggregate pillars into GTI (weighted sum) ──────────────────────
         raw_gti = sum(

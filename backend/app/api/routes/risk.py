@@ -94,4 +94,10 @@ async def sync_global_risk(include_ai_summary: bool = True, db: Session = Depend
     """
     result = risk_pipeline.sync_global_risk(db, include_ai_summary=include_ai_summary)
     await manager.broadcast({"type": "risk_update", "summary": result.get("ai_summary")})
+    new_gti = result.get("new_gti")
+    if new_gti is not None:
+        try:
+            await manager.broadcast({"type": "gti_update", "score": new_gti})
+        except Exception:
+            pass
     return result

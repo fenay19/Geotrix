@@ -283,7 +283,7 @@ class MLPredictor:
         # ── 1. Price History ────────────────────────────────────────────────
         history = repo.get_history(market_id, limit=300)
 
-        if len(history) < 20:
+        if len(history) < 60:
             yf_ticker = self.TICKER_MAP.get(symbol, symbol)
             logger.info(
                 f"DB has only {len(history)} candles for {symbol}. "
@@ -291,7 +291,7 @@ class MLPredictor:
             )
             try:
                 yf_df = yf.download(yf_ticker, period="2y", interval="1d", progress=False)
-                if yf_df.empty or len(yf_df) < 20:
+                if yf_df.empty or len(yf_df) < 60:
                     raise ValueError(f"yfinance returned insufficient data for {yf_ticker}")
                 yf_df.columns = [
                     c[0].lower() if isinstance(c, tuple) else c.lower()
@@ -309,6 +309,44 @@ class MLPredictor:
                     for _, row in yf_df.iterrows()
                 ]
                 logger.info(f"yfinance fallback: loaded {len(candles)} candles for {symbol}")
+
+                # T2 Auto-backfill to DB
+                try:
+                    from ...models.market_model import MarketHistory
+                    from ...schemas.market_schema import MarketHistoryCreate
+                    
+                    existing_ts = {
+                        row[0]
+                        for row in db.query(MarketHistory.timestamp)
+                        .filter(MarketHistory.market_id == market_id)
+                        .all()
+                    }
+                    
+                    count = 0
+                    for idx, row in yf_df.iterrows():
+                        candle_dt = idx.to_pydatetime()
+                        if candle_dt in existing_ts:
+                            continue
+                        
+                        db_history = MarketHistory(
+                            market_id=market_id,
+                            open=float(row["open"]),
+                            high=float(row["high"]),
+                            low=float(row["low"]),
+                            close=float(row["close"]),
+                            volume=float(row.get("volume", 0) or 0),
+                            timestamp=candle_dt,
+                        )
+                        db.add(db_history)
+                        count += 1
+                    
+                    if count > 0:
+                        db.commit()
+                        logger.info(f"Auto-backfilled {count} candles to DB from yfinance for {symbol}")
+                except Exception as db_err:
+                    db.rollback()
+                    logger.warning(f"Failed to auto-backfill yfinance candles to DB for {symbol}: {db_err}")
+
             except Exception as yfe:
                 raise ValueError(
                     f"Insufficient DB history ({len(history)}) and yfinance "
@@ -460,13 +498,24 @@ class MLPredictor:
         # GARCH(1,1) conditional volatility
         try:
             ret_s = daily_ret.fillna(0.0)
-            if ret_s.std() > 0.0001:
-                gm = arch_model(ret_s * 100.0, vol="Garch", p=1, q=1, dist="Normal")
+            if len(ret_s) >= 30 and ret_s.std() > 0.0001:
+                # Adaptive scaling to avoid DataScaleWarning from ARCH
+                scale_factor = 100.0
+                scaled_returns = ret_s * scale_factor
+                while scaled_returns.std() < 1.0 and scale_factor < 1e7:
+                    scale_factor *= 10.0
+                    scaled_returns = ret_s * scale_factor
+                
+                import warnings
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    gm = arch_model(scaled_returns, vol="Garch", p=1, q=1, dist="Normal")
                 gr = gm.fit(disp="off", show_warning=False)
-                feat["garch_sigma_1d"] = float(gr.conditional_volatility.iloc[-1] / 100.0)
+                feat["garch_sigma_1d"] = float(gr.conditional_volatility.iloc[-1] / scale_factor)
             else:
                 feat["garch_sigma_1d"] = float(feat["vol_20d"] / math.sqrt(252.0))
-        except Exception:
+        except Exception as e:
+            logger.warning(f"GARCH calculation failed, using fallback: {e}")
             feat["garch_sigma_1d"] = float(feat["vol_20d"] / math.sqrt(252.0))
 
         # Phase 4: 8 new SELL-friendly features
@@ -508,8 +557,9 @@ class MLPredictor:
         seq_model = model_pack.get("seq_model")
         if seq_model is not None:
             try:
-                seq_candles = candles[-30:]
-                if len(seq_candles) == 30:
+                seq_candles = candles
+                if len(seq_candles) >= 30:
+                    seq_candles = seq_candles[-30:]
                     ref_price  = seq_candles[0]["close"] or 1.0
                     norm_open  = [c["open"]   / ref_price - 1.0 for c in seq_candles]
                     norm_high  = [c["high"]   / ref_price - 1.0 for c in seq_candles]
@@ -531,6 +581,9 @@ class MLPredictor:
 
                     for i in range(SEQ_EMBED_DIM):      # 32 dims (was 16)
                         feat[f"seq_emb_{i}"] = float(emb[i])
+                    logger.info(
+                        f"Generated sequence embedding from {len(seq_candles)} candles"
+                    )
             except Exception as e:
                 logger.error(f"Sequence embedding failed for {symbol}: {e}")
 

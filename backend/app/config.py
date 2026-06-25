@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./sql_app.db"
     SECRET_KEY: str = _INSECURE_KEY
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     DEBUG: bool = True
 
     # CORS — list of allowed origins (comma-separated in .env).
@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     SCHEDULER_INTERVAL_SECONDS: int = 3600   # Run every 1 hour (was 24h)
     IS_SHUTTING_DOWN: bool = False
 
+    # Hugging Face local cache directory redirection
+    HF_HOME: Optional[str] = None
+
     @model_validator(mode="after")
     def resolve_db_url(self) -> "Settings":
         if self.DATABASE_URL.startswith("sqlite:///"):
@@ -72,6 +75,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = os.path.join(os.path.dirname(__file__), "..", ".env")
         case_sensitive = True
+        extra = "ignore"
 
 
 settings = Settings()

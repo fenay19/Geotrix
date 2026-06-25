@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from ..models.supply_chain_model import SupplyChainNode, SupplyChainDependency
+from ..models.supply_chain_model import SupplyChainNode, SupplyChainDependency, SupplyChainSimulationRun
 from ..schemas.supply_chain_schema import SupplyChainNodeCreate, SupplyChainDependencyCreate
 
 
@@ -59,3 +59,65 @@ class SupplyChainRepository:
         self.db.commit()
         self.db.refresh(db_dep)
         return db_dep
+
+    # ── BFS helpers: bulk-load entire adjacency list in 2 queries ──────────
+
+    def get_all_nodes_map(self) -> dict:
+        """Returns {node_id: SupplyChainNode} for the entire graph."""
+        return {n.id: n for n in self.db.query(SupplyChainNode).all()}
+
+    def get_adjacency_map(self) -> dict:
+        """
+        Returns {source_node_id: [SupplyChainDependency, ...]} for the entire graph.
+        Loading all edges in one query is far more efficient than per-node lookups
+        inside the BFS loop.
+        """
+        adj: dict = {}
+        for dep in self.db.query(SupplyChainDependency).all():
+            adj.setdefault(dep.source_node_id, []).append(dep)
+        return adj
+
+    # ── Simulation run persistence ──────────────────────────────────────────
+
+    def create_simulation_run(
+        self,
+        source_node_id: int,
+        source_node_name: str,
+        severity: float,
+        disruption_type: str,
+        apply_variability: bool,
+        affected_nodes_json: list,
+        logs_json: list,
+    ) -> SupplyChainSimulationRun:
+        run = SupplyChainSimulationRun(
+            source_node_id=source_node_id,
+            source_node_name=source_node_name,
+            severity=severity,
+            disruption_type=disruption_type,
+            apply_variability=apply_variability,
+            affected_nodes_json=affected_nodes_json,
+            logs_json=logs_json,
+        )
+        self.db.add(run)
+        self.db.commit()
+        self.db.refresh(run)
+        return run
+
+    def get_simulation_run_by_id(self, run_id: int) -> Optional[SupplyChainSimulationRun]:
+        return (
+            self.db.query(SupplyChainSimulationRun)
+            .filter(SupplyChainSimulationRun.id == run_id)
+            .first()
+        )
+
+    def get_simulation_runs(
+        self, skip: int = 0, limit: int = 20
+    ) -> List[SupplyChainSimulationRun]:
+        return (
+            self.db.query(SupplyChainSimulationRun)
+            .order_by(SupplyChainSimulationRun.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+

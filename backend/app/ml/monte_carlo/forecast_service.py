@@ -33,6 +33,8 @@ from ...services.risk_service import risk_service
 from ...ai.forecasting.volatility_model import volatility_model
 from .gbm_engine import gbm_engine
 from .risk_metrics import risk_metrics
+from ...config import settings
+from ...ai.chatbot.chat_engine import get_chat_engine
 
 logger = logging.getLogger("geotrade.ml.monte_carlo.forecast")
 
@@ -171,9 +173,12 @@ class MonteCarloForecastService:
         
         try:
             from arch import arch_model
+            import warnings
             ret_series = daily_ret * 100.0  # Scale returns by 100
             if ret_series.std() > 0.0001:
-                garch_model_fit = arch_model(ret_series, vol="Garch", p=1, q=1, dist="Normal")
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    garch_model_fit = arch_model(ret_series, vol="Garch", p=1, q=1, dist="Normal")
                 garch_res = garch_model_fit.fit(disp="off", show_warning=False)
                 garch_params = {
                     "mu": float(garch_res.params.get("mu", 0.0)),
@@ -233,6 +238,16 @@ class MonteCarloForecastService:
             trend = "SIDEWAYS"
 
         # ── 9. Build and return response ──────────────────────────────────────
+        interpretation = self._generate_interpretation(
+            symbol=market.symbol,
+            horizon=horizon,
+            S0=S0,
+            drift=drift,
+            volatility=volatility,
+            risk_report=risk_report,
+            gti_score=gti_score
+        )
+
         return {
             # Identity
             "symbol":         market.symbol,
@@ -270,9 +285,68 @@ class MonteCarloForecastService:
             "worst_case_price":     risk_report["worst_case"],
             "median_final_price":   risk_report["median_final_price"],
 
+            # Nested risk metrics for frontend compatibility
+            "risk_metrics": {
+                "var_95":               risk_report["var_95"],
+                "cvar_95":              risk_report["cvar_95"],
+                "probability_of_loss":  risk_report["probability_of_loss"],
+                "expected_return":      risk_report["expected_return"],
+                "sharpe_ratio":         risk_report["sharpe_ratio"],
+                "best_case_price":      risk_report["best_case"],
+                "worst_case_price":     risk_report["worst_case"],
+                "median_final_price":   risk_report["median_final_price"],
+                "expected_value":       risk_report["median_final_price"],
+                "interpretation":       interpretation,
+            },
+
             # Summary
             "trend":                trend,
+            "interpretation":       interpretation,
         }
+
+    def _generate_interpretation(self, symbol: str, horizon: int, S0: float, drift: float, volatility: float, risk_report: dict, gti_score: float) -> str:
+        api_key = settings.OPENAI_API_KEY
+        expected_val = risk_report["median_final_price"]
+        prob_loss = risk_report["probability_of_loss"]
+        var_95 = risk_report["var_95"]
+        cvar_95 = risk_report["cvar_95"]
+        sharpe = risk_report["sharpe_ratio"]
+        
+        if api_key:
+            prompt = f"""You are a senior quantitative risk analyst.
+Interpret these GARCH Monte Carlo simulation results for {symbol}:
+- Current Price: {S0:.2f}
+- Simulation Horizon: {horizon} trading days
+- Annualized Drift: {drift:.2%}
+- Annualized Volatility: {volatility:.2%}
+- Expected Median Final Price: {expected_val:.2f}
+- Probability of Loss: {prob_loss:.1f}%
+- Value at Risk (VaR 95%): {var_95:.2f}%
+- Conditional VaR (CVaR 95%): {cvar_95:.2f}%
+- Sharpe Ratio: {sharpe:.2f}
+- Global Tension Index (GTI): {gti_score}/100
+
+Write a concise, professional 2-3 sentence risk interpretation for a trader. Analyze the balance of risk and reward, the likelihood of a negative outcome, and whether the volatility regime warrants caution.
+Do not use markdown formatting, bold tags, or headers. Write a single fluid paragraph."""
+            try:
+                engine = get_chat_engine(api_key)
+                interpretation = engine.ask(prompt, temperature=0.3, max_tokens=150)
+                if interpretation:
+                    return interpretation.strip()
+            except Exception as e:
+                logger.warning("Failed to generate AI interpretation for MC forecast: %s", e)
+                
+        # Heuristic/rule-based fallback
+        trend = "bullish" if expected_val > S0 * 1.02 else ("bearish" if expected_val < S0 * 0.98 else "sideways")
+        vol_regime = "elevated" if volatility > 0.25 else ("moderate" if volatility > 0.12 else "low")
+        risk_status = "substantial tail-risk" if abs(var_95) > 8.0 else "manageable downside"
+        
+        return (
+            f"The GARCH Monte Carlo simulation suggests a {trend} outlook for {symbol} over the next {horizon} trading days, "
+            f"characterized by {vol_regime} volatility ({volatility:.1%}). "
+            f"There is a {prob_loss:.1f}% probability of finishing below the current price of {S0:.2f}. "
+            f"Risk metrics indicate a 95% Value-at-Risk of {var_95:.1%}, signaling {risk_status} under current geopolitical conditions (GTI: {gti_score:.0f}/100)."
+        )
 
     # ── Private helpers ───────────────────────────────────────────────────────
 

@@ -49,7 +49,7 @@ class EventRepository:
         return (
             self.db.query(Event)
             .filter(Event.severity >= min_severity)
-            .order_by(Event.severity.desc())
+            .order_by(Event.timestamp.desc())
             .all()
         )
 

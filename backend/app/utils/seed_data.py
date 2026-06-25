@@ -29,6 +29,8 @@ from app.models.simulation_model import SimulationRun
 
 
 def seed():
+    # Clear existing tables first
+    Base.metadata.drop_all(bind=engine)
     # Ensure tables exist
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
@@ -46,6 +48,38 @@ def seed():
             {"country_code": "SA", "country_name": "Saudi Arabia", "risk_score": 45.0, "color_code": "Yellow", "sector_exposure": {"Energy": 90, "Finance": 10}},
             {"country_code": "IR", "country_name": "Iran", "risk_score": 72.0, "color_code": "Red", "sector_exposure": {"Energy": 70, "Defense": 30}},
             {"country_code": "IL", "country_name": "Israel", "risk_score": 75.0, "color_code": "Red", "sector_exposure": {"Tech": 40, "Defense": 60}},
+            {"country_code": "JP", "country_name": "Japan", "risk_score": 30.0, "color_code": "Green", "sector_exposure": {"Manufacturing": 40, "Tech": 30, "Finance": 30}},
+            {"country_code": "DE", "country_name": "Germany", "risk_score": 28.0, "color_code": "Green", "sector_exposure": {"Manufacturing": 50, "Automotive": 30, "Finance": 20}},
+            {"country_code": "IN", "country_name": "India", "risk_score": 40.0, "color_code": "Yellow", "sector_exposure": {"Tech": 40, "Services": 40, "Agriculture": 20}},
+            {"country_code": "KR", "country_name": "South Korea", "risk_score": 35.0, "color_code": "Green", "sector_exposure": {"Semiconductors": 60, "Tech": 30, "Manufacturing": 10}},
+            {"country_code": "BR", "country_name": "Brazil", "risk_score": 50.0, "color_code": "Yellow", "sector_exposure": {"Agriculture": 40, "Energy": 30, "Materials": 30}},
+            {"country_code": "MX", "country_name": "Mexico", "risk_score": 48.0, "color_code": "Yellow", "sector_exposure": {"Manufacturing": 50, "Energy": 20, "Agriculture": 30}},
+            {"country_code": "GB", "country_name": "United Kingdom", "risk_score": 27.0, "color_code": "Green", "sector_exposure": {"Finance": 50, "Services": 30, "Energy": 20}},
+            {"country_code": "FR", "country_name": "France", "risk_score": 26.0, "color_code": "Green", "sector_exposure": {"Finance": 30, "Luxury": 40, "Industrial": 30}},
+            {"country_code": "CA", "country_name": "Canada", "risk_score": 24.0, "color_code": "Green", "sector_exposure": {"Energy": 35, "Finance": 30, "Manufacturing": 25}},
+            {"country_code": "AU", "country_name": "Australia", "risk_score": 23.0, "color_code": "Green", "sector_exposure": {"Materials": 50, "Finance": 30, "Energy": 20}},
+            {"country_code": "TR", "country_name": "Turkey", "risk_score": 55.0, "color_code": "Yellow", "sector_exposure": {"Manufacturing": 45, "Services": 35, "Agriculture": 20}},
+            {"country_code": "ZA", "country_name": "South Africa", "risk_score": 52.0, "color_code": "Yellow", "sector_exposure": {"Materials": 40, "Finance": 30, "Manufacturing": 20}},
+            {"country_code": "ID", "country_name": "Indonesia", "risk_score": 42.0, "color_code": "Yellow", "sector_exposure": {"Energy": 40, "Agriculture": 35, "Materials": 25}},
+            {"country_code": "PK", "country_name": "Pakistan", "risk_score": 68.0, "color_code": "Red", "sector_exposure": {"Agriculture": 55, "Textiles": 30, "Services": 15}},
+            {"country_code": "KP", "country_name": "North Korea", "risk_score": 85.0, "color_code": "Red", "sector_exposure": {"Defense": 80, "Mining": 20}},
+            {"country_code": "IT", "country_name": "Italy", "risk_score": 32.0, "color_code": "Green", "sector_exposure": {"Manufacturing": 45, "Finance": 25, "Tourism": 30}},
+            {"country_code": "ES", "country_name": "Spain", "risk_score": 33.0, "color_code": "Green", "sector_exposure": {"Tourism": 40, "Manufacturing": 30, "Services": 30}},
+            {"country_code": "NL", "country_name": "Netherlands", "risk_score": 25.0, "color_code": "Green", "sector_exposure": {"Tech": 40, "Logistics": 40, "Agriculture": 20}},
+            {"country_code": "SG", "country_name": "Singapore", "risk_score": 22.0, "color_code": "Green", "sector_exposure": {"Finance": 50, "Tech": 35, "Logistics": 15}},
+            {"country_code": "CH", "country_name": "Switzerland", "risk_score": 21.0, "color_code": "Green", "sector_exposure": {"Finance": 55, "Pharma": 35, "Tech": 10}},
+            {"country_code": "PL", "country_name": "Poland", "risk_score": 38.0, "color_code": "Yellow", "sector_exposure": {"Manufacturing": 45, "Tech": 30, "Agriculture": 25}},
+            {"country_code": "VN", "country_name": "Vietnam", "risk_score": 41.0, "color_code": "Yellow", "sector_exposure": {"Manufacturing": 60, "Agriculture": 25, "Tech": 15}},
+            {"country_code": "PH", "country_name": "Philippines", "risk_score": 44.0, "color_code": "Yellow", "sector_exposure": {"Services": 50, "Manufacturing": 25, "Agriculture": 25}},
+            {"country_code": "MY", "country_name": "Malaysia", "risk_score": 36.0, "color_code": "Yellow", "sector_exposure": {"Tech": 45, "Energy": 35, "Agriculture": 20}},
+            {"country_code": "TH", "country_name": "Thailand", "risk_score": 39.0, "color_code": "Yellow", "sector_exposure": {"Manufacturing": 40, "Tourism": 35, "Agriculture": 25}},
+            {"country_code": "EG", "country_name": "Egypt", "risk_score": 58.0, "color_code": "Yellow", "sector_exposure": {"Services": 45, "Energy": 35, "Agriculture": 20}},
+            {"country_code": "NG", "country_name": "Nigeria", "risk_score": 62.0, "color_code": "Yellow", "sector_exposure": {"Energy": 75, "Agriculture": 15, "Services": 10}},
+            {"country_code": "AR", "country_name": "Argentina", "risk_score": 56.0, "color_code": "Yellow", "sector_exposure": {"Agriculture": 50, "Materials": 25, "Services": 25}},
+            {"country_code": "CO", "country_name": "Colombia", "risk_score": 49.0, "color_code": "Yellow", "sector_exposure": {"Energy": 40, "Agriculture": 35, "Services": 25}},
+            {"country_code": "CL", "country_name": "Chile", "risk_score": 34.0, "color_code": "Green", "sector_exposure": {"Materials": 65, "Agriculture": 20, "Services": 15}},
+            {"country_code": "QA", "country_name": "Qatar", "risk_score": 31.0, "color_code": "Green", "sector_exposure": {"Energy": 85, "Finance": 15}},
+            {"country_code": "AE", "country_name": "United Arab Emirates", "risk_score": 33.0, "color_code": "Green", "sector_exposure": {"Energy": 55, "Finance": 30, "Trade": 15}}
         ]
 
         country_objs = {}
@@ -103,11 +137,11 @@ def seed():
             market_objs[m["symbol"]] = obj
         print(f"[OK] Seeded {len(markets_data)} market assets")
 
-        # Generate 30 days of OHLC history per market
+        # Generate 180 days of OHLC history per market
         history_count = 0
         for symbol, market_obj in market_objs.items():
             base_price = market_obj.price
-            for day in range(30, 0, -1):
+            for day in range(180, 0, -1):
                 noise = random.uniform(-0.02, 0.02)
                 close_price = round(base_price * (1 + noise), 2)
                 open_price = round(close_price * (1 + random.uniform(-0.01, 0.01)), 2)
@@ -132,7 +166,7 @@ def seed():
         gti = GTIScore(current_score=68.5, severity_category="High")
         db.add(gti)
 
-        for day in range(30, 0, -1):
+        for day in range(180, 0, -1):
             score = round(random.uniform(45, 85), 1)
             db.add(GTIHistory(score=score, timestamp=now - timedelta(days=day)))
         print("[OK] Seeded GTI score + 30 days of history")
@@ -141,16 +175,22 @@ def seed():
         # 5. SUPPLY CHAIN NODES & DEPENDENCIES
         # ──────────────────────────────────────────────
         nodes_data = [
-            {"name": "Semiconductors", "location": "Taiwan", "type": "resource"},
-            {"name": "Rare Earth Minerals", "location": "China", "type": "resource"},
-            {"name": "Crude Oil", "location": "Saudi Arabia", "type": "resource"},
-            {"name": "Natural Gas", "location": "Russia", "type": "resource"},
-            {"name": "Tech Industry", "location": "Global", "type": "industry"},
-            {"name": "Electronics Manufacturing", "location": "Global", "type": "industry"},
-            {"name": "Energy Sector", "location": "Global", "type": "industry"},
-            {"name": "Automotive Industry", "location": "Global", "type": "industry"},
-            {"name": "Defense Sector", "location": "Global", "type": "industry"},
-            {"name": "Agriculture / Grain", "location": "Ukraine", "type": "resource"},
+            {"name": "Semiconductors", "location": "Taiwan", "type": "choke_point"},
+            {"name": "Rare Earth Minerals", "location": "China", "type": "choke_point"},
+            {"name": "Crude Oil", "location": "Saudi Arabia", "type": "choke_point"},
+            {"name": "Natural Gas", "location": "Russia", "type": "choke_point"},
+            {"name": "Tech Industry", "location": "Global", "type": "production"},
+            {"name": "Electronics Manufacturing", "location": "Global", "type": "production"},
+            {"name": "Energy Sector", "location": "Global", "type": "port"},
+            {"name": "Automotive Industry", "location": "Global", "type": "production"},
+            {"name": "Defense Sector", "location": "Global", "type": "production"},
+            {"name": "Agriculture / Grain", "location": "Ukraine", "type": "production"},
+            {"name": "Advanced Lithography (EUV)", "location": "Netherlands", "type": "choke_point"},
+            {"name": "Lithium / Battery Cells", "location": "Australia", "type": "choke_point"},
+            {"name": "Cobalt Mining", "location": "DR Congo", "type": "choke_point"},
+            {"name": "Suez Canal Transit", "location": "Egypt", "type": "port"},
+            {"name": "Strait of Malacca Transit", "location": "Singapore", "type": "port"},
+            {"name": "Potash / Fertilizers", "location": "Canada", "type": "production"},
         ]
 
         node_objs = {}
@@ -169,8 +209,17 @@ def seed():
             ("Rare Earth Minerals", "Defense Sector", "major_input", 0.75),
             ("Crude Oil", "Energy Sector", "critical_input", 0.95),
             ("Crude Oil", "Automotive Industry", "major_input", 0.60),
-            ("Natural Gas", "Energy Sector", "major_input", 0.80),
+            ("Natural Gas", "Energy Sector", "pipeline", 0.80),
             ("Agriculture / Grain", "Energy Sector", "minor_input", 0.30),
+            ("Advanced Lithography (EUV)", "Semiconductors", "critical_input", 0.98),
+            ("Lithium / Battery Cells", "Automotive Industry", "major_input", 0.85),
+            ("Lithium / Battery Cells", "Electronics Manufacturing", "major_input", 0.75),
+            ("Cobalt Mining", "Lithium / Battery Cells", "critical_input", 0.80),
+            ("Crude Oil", "Suez Canal Transit", "pipeline", 0.85),
+            ("Suez Canal Transit", "Energy Sector", "critical_input", 0.90),
+            ("Crude Oil", "Strait of Malacca Transit", "critical_input", 0.75),
+            ("Strait of Malacca Transit", "Electronics Manufacturing", "major_input", 0.80),
+            ("Potash / Fertilizers", "Agriculture / Grain", "major_input", 0.70),
         ]
 
         for src_name, tgt_name, dep_type, strength in deps:
@@ -185,86 +234,16 @@ def seed():
         # ──────────────────────────────────────────────
         # 6. TRADING SIGNALS
         # ──────────────────────────────────────────────
-        signals_data = [
-            {
-                "symbol": "XAUUSD", 
-                "signal_type": "BUY", 
-                "confidence": 0.88, 
-                "uncertainty": 0.12,
-                "bullish_strength": 0.74,
-                "bearish_strength": 0.08,
-                "entry_price": 2341.0, 
-                "stop_loss": 2298.0, 
-                "target_price": 2427.0, 
-                "risk_reward_ratio": 2.0,
-                "atr": 1.84,
-                "max_position_size": 3.2,
-                "volatility_level": "Medium",
-                "reasoning": "Safe-haven flows increasing due to elevated geopolitical stress.",
-                "risk_factors": ["Sudden de-escalation", "Strong USD data"],
-                "tags": ["short-term", "metals", "global"]
-            },
-            {
-                "symbol": "HSI", 
-                "signal_type": "SELL", 
-                "confidence": 0.85, 
-                "uncertainty": 0.15,
-                "bullish_strength": 0.10,
-                "bearish_strength": 0.60,
-                "entry_price": 18420.0, 
-                "stop_loss": 18800.0, 
-                "target_price": 17200.0, 
-                "risk_reward_ratio": 2.5,
-                "atr": 2.1,
-                "max_position_size": 2.5,
-                "volatility_level": "High",
-                "reasoning": "Tech sector exposure to supply chain decoupling risks.",
-                "risk_factors": ["Policy stimulus surprise", "Yen weakness"],
-                "tags": ["mid-term", "equity", "asia"]
-            },
-            {
-                "symbol": "WTI", 
-                "signal_type": "BUY", 
-                "confidence": 0.85, 
-                "uncertainty": 0.10,
-                "bullish_strength": 0.65,
-                "bearish_strength": 0.05,
-                "entry_price": 78.0, 
-                "stop_loss": 74.0, 
-                "target_price": 88.0, 
-                "risk_reward_ratio": 2.2,
-                "atr": 1.5,
-                "max_position_size": 3.0,
-                "volatility_level": "High",
-                "reasoning": "Supply disruptions in Middle East transit routes.",
-                "risk_factors": ["OPEC production increase", "Global recession fears"],
-                "tags": ["energy", "commodities"]
-            },
-            {
-                "symbol": "LMT", 
-                "signal_type": "BUY", 
-                "confidence": 0.85, 
-                "uncertainty": 0.05,
-                "bullish_strength": 0.65,
-                "bearish_strength": 0.15,
-                "entry_price": 450.0, 
-                "stop_loss": 435.0, 
-                "target_price": 485.0, 
-                "risk_reward_ratio": 2.3,
-                "atr": 1.2,
-                "max_position_size": 3.2,
-                "volatility_level": "Medium",
-                "reasoning": "Defense sector demand rising from global military escalations.",
-                "risk_factors": ["Budget cuts", "Peace talks"],
-                "tags": ["military", "defense", "stocks"]
-            },
-        ]
-
-        for s in signals_data:
-            sym = s.pop("symbol")
-            s["market_id"] = market_objs[sym].id
-            db.add(TradingSignal(**s))
-        print(f"[OK] Seeded {len(signals_data)} trading signals")
+        # Auto-generate trading signals dynamically for all seeded markets
+        from app.services.signal_service import signal_service
+        auto_gen_count = 0
+        for sym, market_obj in market_objs.items():
+            try:
+                signal_service.auto_generate_signal(db, market_obj.id)
+                auto_gen_count += 1
+            except Exception as e:
+                print(f"[WARN] Failed to auto-generate signal for {sym}: {e}")
+        print(f"[OK] Auto-generated trading signals for {auto_gen_count} markets")
 
         # ──────────────────────────────────────────────
         # 7. SIMULATION RUNS

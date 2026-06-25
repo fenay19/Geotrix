@@ -41,7 +41,12 @@ class SignalRepository:
         )
 
     def create(self, signal_in: SignalCreate) -> TradingSignal:
-        db_signal = TradingSignal(**signal_in.model_dump())
+        data = signal_in.model_dump()
+        # Only pass fields that actually correspond to columns in the database table
+        valid_cols = {c.name for c in TradingSignal.__table__.columns}
+        filtered_data = {k: v for k, v in data.items() if k in valid_cols}
+        
+        db_signal = TradingSignal(**filtered_data)
         self.db.add(db_signal)
         self.db.commit()
         self.db.refresh(db_signal)

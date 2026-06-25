@@ -22,6 +22,7 @@ class MarketDataClient:
         "HSI":       "^HSI",
         "LMT":       "LMT",
         "INDA":      "INDA",
+        "USDCNH=X":  "CNY=X",
     }
 
     def get_quote(self, symbol: str) -> Dict[str, Any]:
@@ -37,17 +38,23 @@ class MarketDataClient:
             if not df.empty:
                 df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
                 
-                last_row = df.iloc[-1]
-                prev_close = float(df["close"].iloc[-2]) if len(df) >= 2 else float(last_row["close"])
+                # Drop rows where close price is NaN
+                df = df.dropna(subset=["close"])
                 
-                return {
-                    "c": float(last_row["close"]),
-                    "h": float(last_row["high"]),
-                    "l": float(last_row["low"]),
-                    "o": float(last_row["open"]),
-                    "pc": prev_close,
-                    "t": int(df.index[-1].timestamp()),
-                }
+                if not df.empty:
+                    last_row = df.iloc[-1]
+                    prev_close = float(df["close"].iloc[-2]) if len(df) >= 2 else float(last_row["close"])
+                    
+                    return {
+                        "c": float(last_row["close"]),
+                        "h": float(last_row["high"]),
+                        "l": float(last_row["low"]),
+                        "o": float(last_row["open"]),
+                        "pc": prev_close,
+                        "t": int(df.index[-1].timestamp()),
+                    }
+                else:
+                    logger.warning("yfinance quote history for %s was empty after dropping NaN rows", yf_ticker)
             else:
                 logger.warning("yfinance returned empty quote history for %s", yf_ticker)
         except Exception as e:
@@ -69,17 +76,24 @@ class MarketDataClient:
             
             if not df.empty:
                 df.columns = [c[0].lower() if isinstance(c, tuple) else c.lower() for c in df.columns]
-                timestamps = [int(t.timestamp()) for t in df.index]
                 
-                return {
-                    "s": "ok",
-                    "o": [float(x) for x in df["open"]],
-                    "h": [float(x) for x in df["high"]],
-                    "l": [float(x) for x in df["low"]],
-                    "c": [float(x) for x in df["close"]],
-                    "v": [float(x) for x in df["volume"]],
-                    "t": timestamps
-                }
+                # Drop rows where close price is NaN
+                df = df.dropna(subset=["close"])
+                
+                if not df.empty:
+                    timestamps = [int(t.timestamp()) for t in df.index]
+                    
+                    return {
+                        "s": "ok",
+                        "o": [float(x) for x in df["open"]],
+                        "h": [float(x) for x in df["high"]],
+                        "l": [float(x) for x in df["low"]],
+                        "c": [float(x) for x in df["close"]],
+                        "v": [float(x) for x in df["volume"]],
+                        "t": timestamps
+                    }
+                else:
+                    logger.warning("yfinance history for %s was empty after dropping NaN rows", yf_ticker)
             else:
                 logger.warning("yfinance returned empty dataframe for %s", yf_ticker)
         except Exception as yfe:
