@@ -378,8 +378,3 @@ pytest -v
 
 ---
 
-<div align="center">
-
-Made with ❤️ by the GeoTrade Engineering Team • Powered by **FastAPI**, **PyTorch**, and **React**
-
-</div>
