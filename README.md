@@ -1,8 +1,3 @@
-Viewed README.md:1-471
-
-Here is the complete, raw markdown content of your updated [`README.md`](file:///e:/Geo_mapping/geotrade-ai-platform/README.md):
-
-```markdown
 # 🌐 GeoTrade AI Platform (Geotrix)
 
 <div align="center">
@@ -58,7 +53,7 @@ Here is the complete, raw markdown content of your updated [`README.md`](file://
 
 ### 3. ⚡ Deep Learning & Quantitative Signal Pipeline
 - **Hybrid Neural Sequence Architecture:** Custom **Stacked Conv1D + Deep 2-Layer BiGRU + 4-Head Multi-Head Self-Attention** neural embedder producing 32-dimensional sequence representations of market dynamics.
-- **Focal Loss $(\gamma = 2)$ Optimization:** Mitigates class imbalance and sharpens model sensitivity toward rare, high-impact `SELL` and market dislocation signals.
+- **Focal Loss (γ = 2) Optimization:** Mitigates class imbalance and sharpens model sensitivity toward rare, high-impact `SELL` and market dislocation signals.
 - **Calibrated Ensemble Model:** Dual-layer inference combining PyTorch sequence embeddings, **XGBoost**, and **LightGBM** classifiers with per-asset **Platt Scaling** for calibrated probability estimation.
 - **Actionable Execution Targets:** Computes direction (`BUY` / `SELL` / `HOLD`), calibrated confidence scores, dynamic stop-losses, and multi-stage take-profit horizons.
 
@@ -78,139 +73,53 @@ Here is the complete, raw markdown content of your updated [`README.md`](file://
 
 ## 🏗️ System & Pipeline Architecture
 
-```mermaid
-flowchart TD
-    %% =========================================================================
-    %% TIER 1: DATA INGESTION & EXTERNAL FEEDS
-    %% =========================================================================
-    subgraph TIER1["TIER 1 · STREAMING DATA INGESTION"]
-        direction LR
-        RAW_NEWS["📰 Global News Feeds<br/>(GDELT, NewsAPI, RSS)"]
-        RAW_MKT["📈 Market OHLCV Data<br/>(Equities, Forex, Commodities)"]
-        RAW_MACRO["🌐 Macro Indicators<br/>(Interest Rates, VIX, Oil/Gas)"]
-    end
+The complete pipeline flows through five tiers:
 
-    %% =========================================================================
-    %% TIER 2: DUAL-STREAM INTELLIGENCE PROCESSING
-    %% =========================================================================
-    subgraph TIER2["TIER 2 · AI/NLP & DEEP LEARNING FEATURE EXTRACTION"]
-        direction TB
+**TIER 1:** Global news feeds, market OHLCV data, and macro indicators  
+**TIER 2:** NLP/HDBSCAN clustering and PyTorch Conv1D-BiGRU-Attention sequence embeddings (NVIDIA CUDA accelerated)  
+**TIER 3:** Feature fusion, XGBoost/LightGBM ensemble classifiers, and Monte Carlo risk simulation  
+**TIER 4:** FastAPI backend gateway with WebSocket broadcasting and database persistence  
+**TIER 5:** React 19 + TypeScript frontend with Three.js 3D globe, Leaflet maps, and Recharts financial visualizations
 
-        subgraph STREAM_NLP["Stream A: Geopolitical NLP & Tension Engine"]
-            direction TB
-            NLP_PROC["NER & Multi-Lingual Sentiment Scorer"]
-            NLP_CLUSTER["HDBSCAN Semantic Deduplication & Clustering"]
-            NLP_ZERO["Zero-Shot Event Classifier (BART / DeBERTa)"]
-            NLP_VEC[("FAISS High-Dimension Vector Store")]
-            GTI_ENGINE["GTI Stress & Trade Contagion Graph Engine"]
-
-            NLP_PROC --> NLP_CLUSTER --> NLP_ZERO --> NLP_VEC --> GTI_ENGINE
-        end
-
-        subgraph STREAM_DL["Stream B: PyTorch Neural Sequence Embedder (NVIDIA CUDA)"]
-            direction TB
-            SEQ_IN["OHLCV Tensor Window: (Batch, 30 Days, 5 Features)"]
-            CONV1D["Stacked Conv1D Encoder (Kernel: 3, 64-Channels, GELU)"]
-            BIGRU["2-Layer Bidirectional GRU (Hidden Dim: 128)"]
-            MHA["4-Head Multi-Head Self-Attention Layer"]
-            SEQ_EMBED["Projection Head → 32-Dimensional Latent Embedding"]
-
-            SEQ_IN --> CONV1D --> BIGRU --> MHA --> SEQ_EMBED
-        end
-    end
-
-    %% =========================================================================
-    %% TIER 3: QUANTITATIVE ENSEMBLE & RISK SIMULATION
-    %% =========================================================================
-    subgraph TIER3["TIER 3 · QUANTITATIVE ENSEMBLE & RISK ENGINE"]
-        direction TB
-        FUSION["⚡ Feature Fusion Layer<br/>(32D Sequence Latent + GTI Stress Vector + Sector Sensitivities)"]
-        
-        subgraph MODELS["Alpha Prediction & Calibration"]
-            direction LR
-            XGB["XGBoost Classifier<br/>(SELL-Weighted F1)"]
-            LGBM["LightGBM Regressor<br/>(Target Drift)"]
-            PLATT["Per-Asset Platt Scaling<br/>(Probability Calibrator)"]
-        end
-
-        subgraph RISK_ENG["Volatility & Extreme Shock Modeling"]
-            direction LR
-            GARCH["GARCH(1,1)<br/>Volatility Forecaster"]
-            MONTE_CARLO["Monte Carlo Simulator<br/>(10,000 Paths, VaR / CVaR)"]
-        end
-
-        FUSION --> XGB & LGBM
-        XGB & LGBM --> PLATT
-        FUSION --> GARCH --> MONTE_CARLO
-    end
-
-    %% =========================================================================
-    %% TIER 4: BACKEND GATEWAY & REAL-TIME STREAMING
-    %% =========================================================================
-    subgraph TIER4["TIER 4 · FASTAPI BACKEND CORE & DISPATCH"]
-        direction LR
-        FASTAPI_CORE["⚡ FastAPI REST Gateway<br/>(Async Endpoints, OpenAPI Docs)"]
-        WS_HUB["📡 Real-Time WebSocket Hub<br/>(Sub-Second Broadcast Engine)"]
-        DB_STORE[("🗄️ Database Layer<br/>(SQLAlchemy + PostgreSQL / SQLite)")]
-        AI_COPILOT["🤖 Geopolitical Copilot Agent<br/>(LLM Context Retrieval)"]
-    end
-
-    %% =========================================================================
-    %% TIER 5: REACT 19 + THREE.JS WEB CLIENT
-    %% =========================================================================
-    subgraph TIER5["TIER 5 · USER INTERFACE & VISUALIZATION (REACT 19 + TS)"]
-        direction LR
-        UI_GLOBE["🌍 3D WebGL Globe<br/>(Three.js / React-Globe.gl)"]
-        UI_MAP["🗺️ 2D Tactical Map<br/>(React-Leaflet Overlays)"]
-        UI_SIGNALS["📊 Alpha Signal Feed<br/>(Entry, Target, Stop Loss)"]
-        UI_CHARTS["📈 Financial Candlesticks<br/>(Technical & Shock Overlays)"]
-        UI_CHAT["💬 AI Analyst Chatbot<br/>(Natural Language Queries)"]
-    end
-
-    %% =========================================================================
-    %% CLEAN TIER-TO-TIER DATAFLOW
-    %% =========================================================================
-    RAW_NEWS --> NLP_PROC
-    RAW_MKT --> SEQ_IN
-    RAW_MACRO --> GTI_ENGINE
-
-    GTI_ENGINE --> FUSION
-    SEQ_EMBED --> FUSION
-
-    PLATT --> FASTAPI_CORE
-    MONTE_CARLO --> FASTAPI_CORE
-    NLP_VEC -.-> AI_COPILOT
-
-    FASTAPI_CORE --- DB_STORE
-    FASTAPI_CORE --> WS_HUB
-    
-    WS_HUB ==>|Persistent WebSocket Stream| UI_GLOBE & UI_MAP & UI_SIGNALS & UI_CHARTS
-    FASTAPI_CORE -->|REST API Requests & Responses| UI_CHAT & UI_SIGNALS
-
-    %% =========================================================================
-    %% AESTHETIC THEME & STYLING
-    %% =========================================================================
-    classDef default fill:#0b0f19,stroke:#1e293b,stroke-width:1px,color:#f1f5f9;
-    classDef t1 fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#f8fafc;
-    classDef t2 fill:#0f172a,stroke:#06b6d4,stroke-width:2px,color:#f8fafc;
-    classDef t3 fill:#0f172a,stroke:#76b900,stroke-width:2px,color:#f8fafc;
-    classDef t4 fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#f8fafc;
-    classDef t5 fill:#0f172a,stroke:#8b5cf6,stroke-width:2px,color:#f8fafc;
-    classDef highlight fill:#1e1b4b,stroke:#a855f7,stroke-width:2px,color:#ffffff;
-
-    class RAW_NEWS,RAW_MKT,RAW_MACRO t1;
-    class NLP_PROC,NLP_CLUSTER,NLP_ZERO,NLP_VEC,GTI_ENGINE,SEQ_IN,CONV1D,BIGRU,MHA,SEQ_EMBED t2;
-    class FUSION highlight;
-    class XGB,LGBM,PLATT,GARCH,MONTE_CARLO t3;
-    class FASTAPI_CORE,WS_HUB,DB_STORE,AI_COPILOT t4;
-    class UI_GLOBE,UI_MAP,UI_SIGNALS,UI_CHARTS,UI_CHAT t5;
+```
+                  ┌─────────────────────────────────────────────────────────┐
+                  │             Global News Ingestion & Market Data         │
+                  └────────────────────────────┬────────────────────────────┘
+                                               │
+                        ┌──────────────────────┼──────────────────────┐
+                        ▼                      ▼                      ▼
+          ┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────┐
+          │ NLP & HDBSCAN        │  │ Market Sequence      │  │ GTI Risk Engine  │
+          │ Clustering           │  │ Embedder (PyTorch)   │  │ (Graph Contagion)│
+          └──────────────────────┘  └──────────────────────┘  └──────────────────┘
+                        │                      │                      │
+                        └──────────────────────┼──────────────────────┘
+                                               ▼
+                  ┌─────────────────────────────────────────────────────────┐
+                  │      XGBoost/LightGBM Ensemble + Risk Modeling         │
+                  │         Monte Carlo Simulation & Calibration            │
+                  └────────────────────────────┬────────────────────────────┘
+                                               │
+                  ┌────────────────────────────┴────────────────────────┐
+                  ▼                                                     ▼
+          ┌──────────────────────────────┐                ┌──────────────────────┐
+          │ FastAPI REST & WebSocket     │                │ Database Layer       │
+          │ (Real-time Broadcast Hub)    │                │ (SQLAlchemy + DB)    │
+          └──────────────────────────────┘                └──────────────────────┘
+                        │
+                        ▼
+          ┌──────────────────────────────────────────────┐
+          │ React 19 Frontend                            │
+          │ • 3D WebGL Globe (Three.js)                  │
+          │ • 2D Tactical Map (Leaflet)                  │
+          │ • Financial Charts (Recharts)                │
+          │ • AI Copilot Chat                            │
+          └──────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 📂 Repository Directory Layout
-
-GeoTrade is structured as a decoupled, high-throughput monorepo:
 
 ```
 geotrade-ai-platform/
@@ -300,16 +209,16 @@ geotrade-ai-platform/
                   │                      Linear(128 → 32)                   │
                   └────────────────────────────┬────────────────────────────┘
                                                │
-                         ┌─────────────────────┴─────────────────────┐
-                         ▼                                           ▼
-          ┌──────────────────────────────┐            ┌──────────────────────────────┐
-          │     32-Dim Market Latent     │            │    Geopolitical Risk Context │
-          │      Sequence Embedding      │            │   (GTI, Sector Delta, News)  │
-          └──────────────┬───────────────┘            └──────────────┬───────────────┘
-                         │                                           │
-                         └─────────────────────┬─────────────────────┘
-                                               │
-                                               ▼
+                          ┌─────────────────────┴─────────────────────┐
+                          ▼                                           ▼
+           ┌──────────────────────────────┐            ┌──────────────────────────────┐
+           │     32-Dim Market Latent     │            │    Geopolitical Risk Context │
+           │      Sequence Embedding      │            │   (GTI, Sector Delta, News)  │
+           └──────────────┬───────────────┘            └──────────────┬───────────────┘
+                          │                                           │
+                          └─────────────────────┬─────────────────────┘
+                                                │
+                                                ▼
                   ┌─────────────────────────────────────────────────────────┐
                   │                Ensemble Classifier Layer                │
                   │      XGBoost Classifier + LightGBM Boosted Trees        │
@@ -342,7 +251,7 @@ geotrade-ai-platform/
 | **Backend Framework** | `FastAPI`, `Uvicorn`, `Pydantic v2` | Asynchronous REST APIs, WebSocket streaming, OpenAPI docs |
 | **Database & ORM** | `SQLAlchemy 2.0`, `Alembic`, `PostgreSQL` / `SQLite` | High-concurrency ORM, schema migrations, asset time-series |
 | **Frontend Core** | `React 19`, `TypeScript`, `Vite` | Modern component architecture, type safety, fast HMR |
-| **3D & 2D Geo-Visualization**| `Three.js`, `React-Globe.gl`, `Leaflet` | WebGL 3D global risk shaders, tactical 2D geospatial map |
+| **3D & 2D Geo-Visualization** | `Three.js`, `React-Globe.gl`, `Leaflet` | WebGL 3D global risk shaders, tactical 2D geospatial map |
 | **Financial Charting** | `Recharts`, `Custom Canvas Candlesticks` | High-density interactive financial charts, sparklines, gauges |
 | **Styling & UI Tokens** | `Vanilla CSS Tokens`, `Framer Motion` | Sleek dark mode, terminal glassmorphism, responsive layouts |
 
@@ -454,8 +363,8 @@ pytest -v
 | `GET` | `/api/v1/gti/current` | Retrieve live Global Tension Index, country scores & 24h delta |
 | `GET` | `/api/v1/gti/history` | Historical GTI time-series across configurable lookback windows |
 | `GET` | `/api/v1/signals/latest` | Latest AI-generated quant signals with targets, stop-losses & confidence |
-| `POST` | `/api/v1/simulation/monte-carlo`| Execute stochastic geopolitical shock Monte Carlo simulation (VaR/CVaR) |
-| `GET` | `/api/v1/supply-chain/chokepoints`| Critical trade chokepoints, geopolitical exposure & risk status |
+| `POST` | `/api/v1/simulation/monte-carlo` | Execute stochastic geopolitical shock Monte Carlo simulation (VaR/CVaR) |
+| `GET` | `/api/v1/supply-chain/chokepoints` | Critical trade chokepoints, geopolitical exposure & risk status |
 | `POST` | `/api/v1/chat/query` | Natural language queries to the AI Geopolitical Copilot |
 | `WS` | `/ws/live` | Persistent sub-second WebSocket stream for real-time market & risk updates |
 
@@ -471,6 +380,6 @@ pytest -v
 
 <div align="center">
 
+Made with ❤️ by the GeoTrade Engineering Team • Powered by **FastAPI**, **PyTorch**, and **React**
 
 </div>
-```
